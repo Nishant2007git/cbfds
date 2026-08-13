@@ -3,9 +3,11 @@ import env from './env.js';
 import logger from '../utils/logger.js';
 
 export const connectionOpts = {
-  host: env.REDIS_HOST,
+  host: (env.REDIS_HOST || 'localhost').trim(),
   port: env.REDIS_PORT,
-  ...(env.REDIS_PASSWORD ? { password: env.REDIS_PASSWORD } : {})
+  maxRetriesPerRequest: null,
+  enableOfflineQueue: false,
+  ...(env.REDIS_PASSWORD ? { password: env.REDIS_PASSWORD.trim() } : {})
 };
 
 // In-memory worker registry to support mock synchronous workers during test executions
@@ -13,18 +15,27 @@ const mockWorkerRegistry = new Map();
 
 /**
  * BaseQueue Wrapper Class
- * Delegates to BullMQ in development/production, or mocks operations in test mode.
+ * Delegates to BullMQ in development/production, or mocks operations in test mode / missing Redis.
  */
 class BaseQueue {
   constructor(name) {
     this.name = name;
-    if (process.env.NODE_ENV === 'test') {
+    if (process.env.NODE_ENV === 'test' || !env.REDIS_HOST || env.REDIS_HOST.trim() === 'localhost') {
       this.isMock = true;
       this.jobs = [];
-      logger.info(`BaseQueue: Initialized mock queue wrapper for "${name}"`);
+      logger.info(`BaseQueue: Initialized mock queue wrapper for "${name}" (Localhost / Test mode)`);
     } else {
-      this.bullQueue = new Queue(name, { connection: connectionOpts });
-      logger.info(`BaseQueue: Initialized BullMQ queue for "${name}"`);
+      try {
+        this.bullQueue = new Queue(name, { connection: connectionOpts });
+        this.bullQueue.on('error', (err) => {
+          logger.warn(`BullMQ Queue [${name}] error: ${err.message}`);
+        });
+        logger.info(`BaseQueue: Initialized BullMQ queue for "${name}"`);
+      } catch (err) {
+        this.isMock = true;
+        this.jobs = [];
+        logger.warn(`BaseQueue: Failed to initialize BullMQ for "${name}", falling back to mock queue: ${err.message}`);
+      }
     }
   }
 

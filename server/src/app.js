@@ -42,7 +42,12 @@ const createApp = async () => {
   // Global Middleware Stack
   app.use(helmet());
   app.use(cors({
-    origin: env.FRONTEND_URL,
+    origin: (origin, callback) => {
+      // allow requests with no origin (mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+      const cleanOrigin = origin.trim().replace(/[\r\n]/g, '');
+      return callback(null, cleanOrigin);
+    },
     credentials: true
   }));
 

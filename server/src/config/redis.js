@@ -22,27 +22,36 @@ export const connectRedis = () => {
   }
 
   const config = {
-    host: env.REDIS_HOST,
+    host: (env.REDIS_HOST || 'localhost').trim(),
     port: env.REDIS_PORT,
+    maxRetriesPerRequest: 3,
+    enableOfflineQueue: false,
     retryStrategy: (times) => {
-      const delay = Math.min(times * 100, 3000);
-      return delay;
+      if (times > 3) {
+        logger.warn('Redis connection retry limit reached. Redis will remain offline until reconnected.');
+        return null;
+      }
+      return Math.min(times * 300, 1500);
     },
   };
 
   if (env.REDIS_PASSWORD) {
-    config.password = env.REDIS_PASSWORD;
+    config.password = env.REDIS_PASSWORD.trim();
   }
 
-  redisClient = new Redis(config);
+  try {
+    redisClient = new Redis(config);
 
-  redisClient.on('connect', () => {
-    logger.info('Connected to Redis successfully.');
-  });
+    redisClient.on('connect', () => {
+      logger.info('Connected to Redis successfully.');
+    });
 
-  redisClient.on('error', (err) => {
-    logger.error('Redis connection error:', err);
-  });
+    redisClient.on('error', (err) => {
+      logger.warn(`Redis connection issue: ${err.message}`);
+    });
+  } catch (err) {
+    logger.warn(`Failed to initialize Redis client: ${err.message}`);
+  }
 
   return redisClient;
 };

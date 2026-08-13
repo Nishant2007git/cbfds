@@ -7,20 +7,20 @@ dotenv.config();
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.string().transform((val) => parseInt(val, 10)).default('3000'),
-  API_VERSION: z.string().default('v1'),
-  APP_URL: z.string().url(),
-  FRONTEND_URL: z.string().url(),
+  PORT: z.string().transform((val) => parseInt(val.trim(), 10)).default('3000'),
+  API_VERSION: z.string().transform((val) => val.trim()).default('v1'),
+  APP_URL: z.string().transform((val) => val.trim()).pipe(z.string().url()),
+  FRONTEND_URL: z.string().transform((val) => val.trim()).pipe(z.string().url()),
 
   // MongoDB
-  MONGODB_URI: z.string().url(),
-  MONGODB_DB_NAME: z.string().default('cbfds'),
+  MONGODB_URI: z.string().transform((val) => val.trim()).pipe(z.string().url()),
+  MONGODB_DB_NAME: z.string().transform((val) => val.trim()).default('cbfds'),
 
   // Redis (optional — mock queue used when not present)
-  REDIS_HOST: z.string().optional().default('localhost'),
-  REDIS_PORT: z.string().transform((val) => parseInt(val, 10)).default('6379'),
-  REDIS_PASSWORD: z.string().optional().nullable().default(''),
-  REDIS_URL: z.string().optional(),
+  REDIS_HOST: z.string().optional().transform((val) => val ? val.trim() : 'localhost').default('localhost'),
+  REDIS_PORT: z.string().transform((val) => parseInt(val.trim(), 10)).default('6379'),
+  REDIS_PASSWORD: z.string().optional().nullable().transform((val) => val ? val.trim() : '').default(''),
+  REDIS_URL: z.string().optional().transform((val) => val ? val.trim() : undefined),
 
   // JWT
   JWT_SECRET: z.string().min(32, { message: 'JWT_SECRET must be at least 32 characters long' }),
