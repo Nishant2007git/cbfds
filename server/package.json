@@ -1,0 +1,41 @@
+{
+  "name": "cbfds-server",
+  "version": "1.0.0",
+  "description": "Backend API server for Cloud-Based File Distribution System",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test:unit": "mocha src/tests/unit/**/*.test.js --recursive --exit",
+    "test:integration": "mocha src/tests/integration/**/*.test.js --recursive --timeout 120000 --exit",
+    "test:e2e": "mocha src/tests/e2e/**/*.test.js --recursive --exit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1107.0",
+    "@aws-sdk/lib-storage": "^3.1107.0",
+    "@tus/file-store": "^2.1.0",
+    "@tus/server": "^2.4.1",
+    "bcryptjs": "^2.4.3",
+    "bullmq": "^4.12.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^6.9.0",
+    "helmet": "^7.0.0",
+    "ioredis": "^5.3.2",
+    "jsonwebtoken": "^9.0.1",
+    "mongoose": "^7.4.1",
+    "nodemailer": "^6.9.4",
+    "uuid": "^9.0.0",
+    "winston": "^3.10.0",
+    "zod": "^3.21.4"
+  },
+  "devDependencies": {
+    "chai": "^4.3.7",
+    "mocha": "^10.2.0",
+    "mongodb-memory-server": "^8.15.0",
+    "nodemon": "^3.0.1",
+    "supertest": "^6.3.3"
+  }
+}

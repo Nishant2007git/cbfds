@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  # MongoDB service
+  mongodb:
+    image: mongo:6.0
+    container_name: cbfds-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: cbfds
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - cbfds-network
+
+  # Redis service (caching & BullMQ queues)
+  redis:
+    image: redis:7.0-alpine
+    container_name: cbfds-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - cbfds-network
+
+volumes:
+  mongodb-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  cbfds-network:
+    driver: bridge
