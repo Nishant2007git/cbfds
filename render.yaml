@@ -7,7 +7,7 @@ services:
     name: cbfds-server
     env: node
     region: singapore
-    plan: starter
+    plan: free
     rootDir: server
     buildCommand: npm install
     startCommand: npm start
