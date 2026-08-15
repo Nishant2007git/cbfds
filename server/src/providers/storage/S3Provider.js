@@ -202,11 +202,12 @@ class S3Provider extends IStorageProvider {
   async createBucket(bucket) {
     try {
       logger.info(`S3: Creating new bucket: ${bucket}`);
+      const createConfig = this.region && this.region !== 'us-east-1'
+        ? { CreateBucketConfiguration: { LocationConstraint: this.region } }
+        : {};
       await this.client.send(new CreateBucketCommand({
         Bucket: bucket,
-        CreateBucketConfiguration: {
-          LocationConstraint: this.region,
-        },
+        ...createConfig
       }));
     } catch (err) {
       // Ignore if already exists
