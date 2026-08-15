@@ -27,23 +27,47 @@ class StorageFactory {
           const { default: MinIOProvider } = await import('./MinIOProvider.js');
           return new MinIOProvider();
         } catch (err) {
-          logger.error('Failed to import MinIOProvider strategy:', err);
-          throw err;
+          logger.warn('Failed to initialize MinIOProvider strategy, falling back to MockStorageProvider:', err);
+          if (!mockInstance) {
+            const { default: MockStorageProvider } = await import('./MockStorageProvider.js');
+            mockInstance = new MockStorageProvider();
+          }
+          return mockInstance;
         }
       case 's3':
         try {
+          // If demo AWS credentials are set (e.g. on free hosting), use MockStorageProvider fallback
+          const awsKey = process.env.AWS_ACCESS_KEY_ID || env.AWS_ACCESS_KEY_ID;
+          if (!awsKey || awsKey.startsWith('demo_')) {
+            logger.info('StorageFactory: Demo AWS keys detected. Using MockStorageProvider for free hosting.');
+            if (!mockInstance) {
+              const { default: MockStorageProvider } = await import('./MockStorageProvider.js');
+              mockInstance = new MockStorageProvider();
+            }
+            return mockInstance;
+          }
           const { default: S3Provider } = await import('./S3Provider.js');
           return new S3Provider({
-            region: process.env.AWS_REGION || 'eu-north-1',
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+            region: process.env.AWS_REGION || 'us-east-1',
+            accessKeyId: awsKey,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || env.AWS_SECRET_ACCESS_KEY,
           });
         } catch (err) {
-          logger.error('Failed to import S3Provider strategy:', err);
-          throw err;
+          logger.warn('Failed to initialize S3Provider strategy, falling back to MockStorageProvider:', err);
+          if (!mockInstance) {
+            const { default: MockStorageProvider } = await import('./MockStorageProvider.js');
+            mockInstance = new MockStorageProvider();
+          }
+          return mockInstance;
         }
+      case 'mock':
       default:
-        throw new Error(`Unsupported storage provider configuration: ${provider}`);
+        if (!mockInstance) {
+          logger.info('StorageFactory: Initializing singleton MockStorageProvider.');
+          const { default: MockStorageProvider } = await import('./MockStorageProvider.js');
+          mockInstance = new MockStorageProvider();
+        }
+        return mockInstance;
     }
   }
 }
