@@ -1,6 +1,7 @@
 import { Worker } from 'bullmq';
 import fs from 'fs';
 import path from 'path';
+import env from '../config/env.js';
 import { connectionOpts, registerMockWorker } from '../config/queue.js';
 import ShareRepository from '../repositories/shareRepository.js';
 import FileRepository from '../repositories/fileRepository.js';

@@ -1,5 +1,6 @@
 import { Worker } from 'bullmq';
 import ChunkingService from '../services/chunkingService.js';
+import env from '../config/env.js';
 import { connectionOpts, registerMockWorker } from '../config/queue.js';
 import logger from '../utils/logger.js';
 
