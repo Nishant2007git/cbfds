@@ -70,6 +70,12 @@ const UploadZone = ({ onUploadComplete }) => {
       retryDelays: [0, 1000, 3000, 5000],
       headers: { Authorization: `Bearer ${token}` },
       metadata: { filename: file.name, filetype: file.type || 'application/octet-stream' },
+      onBeforeRequest: (req) => {
+        let url = req.getURL();
+        if (window.location.protocol === 'https:' && url.startsWith('http://')) {
+          req.setURL(url.replace(/^http:\/\//, 'https://'));
+        }
+      },
       onError: (error) => {
         setUploads((prev) => prev.map((u) =>
           u.id === uploadId ? { ...u, status: 'error', errorMessage: error.message || 'Upload failed' } : u

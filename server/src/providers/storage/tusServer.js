@@ -27,6 +27,7 @@ const sanitizeFilename = (name) => {
 
 const tusServer = new Server({
   path: `/api/${env.API_VERSION}/uploads`,
+  relativeLocation: true,
   datastore: new FileStore({
     directory: uploadDir,
   }),
