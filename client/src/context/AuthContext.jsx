@@ -30,9 +30,13 @@ export const AuthProvider = ({ children }) => {
     const initSession = async () => {
       try {
         const res = await api.post('/auth/refresh');
-        const { accessToken, user: userData } = res.data.data;
-        setAccessToken(accessToken);
-        setUser(userData);
+        if (res.data && res.data.data) {
+          const { accessToken, user: userData } = res.data.data;
+          setAccessToken(accessToken);
+          setUser(userData);
+        } else {
+          handleLogoutState();
+        }
         // No splash on session restore — only on explicit login
       } catch (err) {
         // No valid session cookie found
@@ -47,6 +51,14 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
+    if (!res.data || typeof res.data !== 'object' || !res.data.data) {
+      const isHtml = typeof res.data === 'string' && res.data.includes('<!DOCTYPE');
+      throw new Error(
+        isHtml
+          ? 'Backend API URL misconfigured or unreachable. Please set VITE_API_URL in Render environment settings.'
+          : (res.data?.message || 'Invalid server response.')
+      );
+    }
     const { accessToken, user: userData } = res.data.data;
     setAccessToken(accessToken);
     setUser(userData);
@@ -56,6 +68,14 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (fullName, email, password) => {
     const res = await api.post('/auth/register', { fullName, email, password });
+    if (!res.data || typeof res.data !== 'object' || !res.data.data) {
+      const isHtml = typeof res.data === 'string' && res.data.includes('<!DOCTYPE');
+      throw new Error(
+        isHtml
+          ? 'Backend API URL misconfigured or unreachable. Please set VITE_API_URL in Render environment settings.'
+          : (res.data?.message || 'Invalid server response.')
+      );
+    }
     const { accessToken, user: userData } = res.data.data;
     setAccessToken(accessToken);
     setUser(userData);

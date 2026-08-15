@@ -52,7 +52,8 @@ const PublicDownload = () => {
   };
 
   const handleDownload = () => {
-    let downloadUrl = `/api/v1/share/${token}/download`;
+    const apiBase = import.meta.env.VITE_API_URL || '/api/v1';
+    let downloadUrl = `${apiBase}/share/${token}/download`;
     if (sessionToken) {
       downloadUrl += `?sessionToken=${encodeURIComponent(sessionToken)}`;
     }

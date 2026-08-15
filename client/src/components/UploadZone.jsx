@@ -63,8 +63,10 @@ const UploadZone = ({ onUploadComplete }) => {
     let lastBytes = 0;
     let lastTime = Date.now();
 
+    const apiBase = import.meta.env.VITE_API_URL || '/api/v1';
+
     const tusUpload = new tus.Upload(file, {
-      endpoint: '/api/v1/uploads',
+      endpoint: `${apiBase}/uploads`,
       retryDelays: [0, 1000, 3000, 5000],
       headers: { Authorization: `Bearer ${token}` },
       metadata: { filename: file.name, filetype: file.type || 'application/octet-stream' },
