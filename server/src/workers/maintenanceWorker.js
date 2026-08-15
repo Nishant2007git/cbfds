@@ -146,27 +146,31 @@ const processMaintenanceJob = async (job) => {
   }
 };
 
+// Always register mock worker fallback for environments where Redis is in mock mode (e.g. localhost/free hosting)
+registerMockWorker('maintenance', processMaintenanceJob);
+
 let worker = null;
 
-if (process.env.NODE_ENV === 'test') {
-  // Register with mock test environment queue runner
-  registerMockWorker('maintenance', processMaintenanceJob);
-} else {
-  // Start active BullMQ worker processor
-  worker = new Worker('maintenance', processMaintenanceJob, {
-    connection: connectionOpts,
-    concurrency: 1 // Single concurrency for maintenance sweeps
-  });
+if (process.env.NODE_ENV !== 'test' && env.REDIS_HOST && env.REDIS_HOST.trim() !== 'localhost') {
+  try {
+    // Start active BullMQ worker processor
+    worker = new Worker('maintenance', processMaintenanceJob, {
+      connection: connectionOpts,
+      concurrency: 1 // Single concurrency for maintenance sweeps
+    });
 
-  worker.on('completed', (job) => {
-    logger.info(`MaintenanceWorker: Job ${job.id} completed successfully.`);
-  });
+    worker.on('completed', (job) => {
+      logger.info(`MaintenanceWorker: Job ${job.id} completed successfully.`);
+    });
 
-  worker.on('failed', (job, err) => {
-    logger.error(`MaintenanceWorker: Job ${job.id} failed. Error: ${err.message}`, err);
-  });
+    worker.on('failed', (job, err) => {
+      logger.error(`MaintenanceWorker: Job ${job.id} failed. Error: ${err.message}`, err);
+    });
 
-  logger.info('MaintenanceWorker: Active BullMQ worker initialized.');
+    logger.info('MaintenanceWorker: Active BullMQ worker initialized.');
+  } catch (err) {
+    logger.warn(`MaintenanceWorker: Could not initialize BullMQ worker, using mock worker fallback: ${err.message}`);
+  }
 }
 
 export default worker;

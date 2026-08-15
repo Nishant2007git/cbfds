@@ -51,27 +51,31 @@ const processNotificationJob = async (job) => {
   await sendPhysicalEmail(to, subject, htmlBody);
 };
 
+// Always register mock worker fallback for environments where Redis is in mock mode (e.g. localhost/free hosting)
+registerMockWorker('notifications', processNotificationJob);
+
 let worker = null;
 
-if (process.env.NODE_ENV === 'test') {
-  // Register with mock test environment queue runner
-  registerMockWorker('notifications', processNotificationJob);
-} else {
-  // Start active BullMQ worker processor
-  worker = new Worker('notifications', processNotificationJob, {
-    connection: connectionOpts,
-    concurrency: 5 // Process up to 5 email tasks concurrently
-  });
+if (process.env.NODE_ENV !== 'test' && env.REDIS_HOST && env.REDIS_HOST.trim() !== 'localhost') {
+  try {
+    // Start active BullMQ worker processor
+    worker = new Worker('notifications', processNotificationJob, {
+      connection: connectionOpts,
+      concurrency: 5 // Process up to 5 email tasks concurrently
+    });
 
-  worker.on('completed', (job) => {
-    logger.info(`notificationWorker: Job ${job.id} completed successfully.`);
-  });
+    worker.on('completed', (job) => {
+      logger.info(`notificationWorker: Job ${job.id} completed successfully.`);
+    });
 
-  worker.on('failed', (job, err) => {
-    logger.error(`notificationWorker: Job ${job.id} failed. Error: ${err.message}`, err);
-  });
+    worker.on('failed', (job, err) => {
+      logger.error(`notificationWorker: Job ${job.id} failed. Error: ${err.message}`, err);
+    });
 
-  logger.info('notificationWorker: Active BullMQ worker initialized.');
+    logger.info('notificationWorker: Active BullMQ worker initialized.');
+  } catch (err) {
+    logger.warn(`notificationWorker: Could not initialize BullMQ worker, using mock worker fallback: ${err.message}`);
+  }
 }
 
 export default worker;
