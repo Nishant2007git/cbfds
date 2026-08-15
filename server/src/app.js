@@ -34,10 +34,32 @@ import validateUploadQuota from './middleware/quota.js';
 
 const createApp = async () => {
   const app = express();
+  app.set('trust proxy', 1);
 
   // Initialize Database Connections
   await connectDatabase();
   connectRedis();
+
+  // Seed default admin account if missing
+  try {
+    const User = (await import('./models/User.js')).default;
+    const adminExists = await User.findOne({ email: 'admin@library.com' });
+    if (!adminExists) {
+      const { v4: uuidv4 } = await import('uuid');
+      await User.create({
+        userId: uuidv4(),
+        fullName: 'System Admin',
+        email: 'admin@library.com',
+        passwordHash: 'Password123!',
+        role: 'admin',
+        storageQuota: 107374182400, // 100 GB
+        storageUsed: 0
+      });
+      logger.info('Seeded System Admin account: admin@library.com');
+    }
+  } catch (seedErr) {
+    logger.warn(`Admin seed check warning: ${seedErr.message}`);
+  }
 
   // Global Middleware Stack
   app.use(helmet());
