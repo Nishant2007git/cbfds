@@ -44,9 +44,9 @@ const Sidebar = () => {
     ? user.fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
     : 'U';
 
-  const quota = user?.storageQuota || 107374182400;
-  const used = user?.storageUsed || 52613248819;
-  const pct = Math.min(100, Math.round((used / quota) * 100));
+  const quota = user?.storageQuota ?? 107374182400;
+  const used = user?.storageUsed ?? 0;
+  const pct = quota > 0 ? Math.min(100, Math.round((used / quota) * 100)) : 0;
 
   const renderNavItem = (item) => {
     const Icon = item.icon;
