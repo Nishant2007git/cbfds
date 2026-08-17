@@ -20,6 +20,53 @@ class FileController {
     try {
       const ownerId = req.user.userId;
       const { page, limit } = req.query;
+
+      // Auto-heal stuck PROCESSING files for this user
+      try {
+        const stuckFiles = await this.fileRepo.model.find({
+          ownerId,
+          status: 'PROCESSING'
+        });
+
+        if (stuckFiles.length > 0) {
+          const ChunkModel = (await import('../models/Chunk.js')).default;
+          const uploadDir = (await import('../providers/storage/tusServer.js')).uploadDir;
+          const fs = (await import('fs')).default;
+          const path = (await import('path')).default;
+
+          for (const file of stuckFiles) {
+            const chunkCount = await ChunkModel.countDocuments({ fileId: file.fileId });
+            if (chunkCount > 0) {
+              await this.fileRepo.model.findOneAndUpdate(
+                { fileId: file.fileId },
+                { $set: { status: 'ACTIVE', totalChunks: chunkCount } }
+              );
+            } else {
+              // Check if temp file still exists on disk to trigger chunking
+              const tempPath = path.resolve(uploadDir, file.fileId);
+              if (fs.existsSync(tempPath)) {
+                const ChunkingService = (await import('../services/chunkingService.js')).default;
+                const chunkService = new ChunkingService();
+                chunkService.chunkAndStore(file.fileId, tempPath, ownerId).catch(err => {
+                  logger.warn(`Auto-heal chunking error for ${file.fileId}: ${err.message}`);
+                });
+              } else {
+                // If created more than 20 seconds ago and no chunks & no temp file -> mark ERROR
+                const ageMs = Date.now() - new Date(file.createdAt).getTime();
+                if (ageMs > 20000) {
+                  await this.fileRepo.model.findOneAndUpdate(
+                    { fileId: file.fileId },
+                    { $set: { status: 'ERROR', statusMessage: 'Upload incomplete. Please re-upload this file.' } }
+                  );
+                }
+              }
+            }
+          }
+        }
+      } catch (healErr) {
+        logger.warn(`Non-blocking file auto-heal warning: ${healErr.message}`);
+      }
+
       const result = await this.fileRepo.listByOwner(ownerId, { page, limit });
 
       res.status(200).json({

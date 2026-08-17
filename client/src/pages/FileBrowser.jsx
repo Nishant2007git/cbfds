@@ -93,22 +93,34 @@ const FileBrowser = () => {
   const [verificationResult, setVerificationResult] = useState(null);
   const [verificationSteps, setVerificationSteps] = useState([]);
 
-  const fetchFiles = async () => {
+  const fetchFiles = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const res = await api.get('/files');
       const items = res.data.data?.items || res.data.data || [];
       setFiles(items);
     } catch (err) {
       console.error('Failed to load files', err);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchFiles();
+    fetchFiles(true);
   }, []);
+
+  // Auto-poll if any file is in PROCESSING status
+  useEffect(() => {
+    const hasProcessing = files.some(f => f.status === 'PROCESSING');
+    if (!hasProcessing) return;
+
+    const interval = setInterval(() => {
+      fetchFiles(false);
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [files]);
 
   // Fetch file version history on drawer mount
   useEffect(() => {

@@ -207,13 +207,29 @@ const tusServer = new Server({
 
       logger.info(`TusServer: File metadata record created in DB. ID: ${fileRecord.fileId}, Status: PROCESSING`);
 
-      // 3. Enqueue background chunking and storage job
-      await fileProcessingQueue.add('chunk-file', {
-        fileId: upload.id,
-        tempFilePath: filePath,
-        userId
+      // 3. Trigger immediate background chunking and enqueue to fileProcessingQueue
+      setImmediate(async () => {
+        try {
+          logger.info(`TusServer: Starting direct background chunking for File: ${upload.id}`);
+          const ChunkingServiceModule = await import('../../services/chunkingService.js');
+          const chunkService = new ChunkingServiceModule.default();
+          await chunkService.chunkAndStore(upload.id, filePath, userId);
+          logger.info(`TusServer: Direct background chunking finished successfully for File: ${upload.id}`);
+        } catch (chunkErr) {
+          logger.error(`TusServer: Direct background chunking failed for File: ${upload.id}: ${chunkErr.message}`);
+        }
       });
-      logger.info(`TusServer: Enqueued file-processing job for File: ${upload.id}`);
+
+      try {
+        await fileProcessingQueue.add('chunk-file', {
+          fileId: upload.id,
+          tempFilePath: filePath,
+          userId
+        });
+        logger.info(`TusServer: Enqueued file-processing job for File: ${upload.id}`);
+      } catch (qErr) {
+        logger.warn(`TusServer: Queue enqueue non-blocking notice: ${qErr.message}`);
+      }
     } catch (err) {
       logger.error(`TusServer: Failed to write file metadata for session ${upload.id}:`, err);
       // Clean up local temp file on database write failure
