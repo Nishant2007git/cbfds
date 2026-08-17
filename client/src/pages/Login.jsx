@@ -8,7 +8,9 @@ const Login = () => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('admin@library.com');
   const [password, setPassword] = useState('Password123!');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -27,12 +29,25 @@ const Login = () => {
         if (!fullName.trim()) {
           throw new Error('Full Name is required.');
         }
-        await register(fullName, email, password);
+        if (password !== confirmPassword) {
+          throw new Error('Passwords do not match.');
+        }
+        await register(fullName, email, password, confirmPassword);
       } else {
         await login(email, password);
       }
     } catch (err) {
-      const msg = err.response?.data?.error?.message || err.message || 'Authentication failed.';
+      let msg = 'Authentication failed.';
+      if (err.response?.data?.error?.details) {
+        const details = err.response.data.error.details;
+        msg = typeof details === 'object' ? Object.values(details).join(' ') : String(details);
+      } else if (err.response?.data?.error?.message) {
+        msg = err.response.data.error.message;
+      } else if (err.response?.data?.message) {
+        msg = err.response.data.message;
+      } else if (err.message) {
+        msg = err.message;
+      }
       setError(msg);
     } finally {
       setLoading(false);
@@ -76,6 +91,7 @@ const Login = () => {
               setError('');
               setEmail('admin@library.com');
               setPassword('Password123!');
+              setConfirmPassword('');
             }}
           >
             <Lock size={14} />
@@ -89,6 +105,7 @@ const Login = () => {
               setError('');
               setEmail('');
               setPassword('');
+              setConfirmPassword('');
             }}
           >
             <UserIcon size={14} />
@@ -177,6 +194,31 @@ const Login = () => {
               <span className="field-hint">Must include uppercase, lowercase, number & symbol.</span>
             )}
           </div>
+
+          {isRegister && (
+            <div className="field-group animate-fadeInUp stagger-4">
+              <label className="field-label">Confirm Password</label>
+              <div className="field-wrapper">
+                <Lock size={16} className="field-icon" />
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  className="field-input"
+                  placeholder="Re-enter your password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  className="field-toggle"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+          )}
 
           <button
             type="submit"

@@ -66,9 +66,16 @@ export const AuthProvider = ({ children }) => {
     return userData;
   };
 
-  const register = async (fullName, email, password) => {
-    const res = await api.post('/auth/register', { fullName, email, password });
-    if (!res.data || typeof res.data !== 'object' || !res.data.data) {
+  const register = async (fullName, email, password, confirmPassword) => {
+    const finalConfirmPassword = confirmPassword || password;
+    const res = await api.post('/auth/register', {
+      fullName,
+      email,
+      password,
+      confirmPassword: finalConfirmPassword
+    });
+
+    if (!res.data || typeof res.data !== 'object') {
       const isHtml = typeof res.data === 'string' && res.data.includes('<!DOCTYPE');
       throw new Error(
         isHtml
@@ -76,11 +83,9 @@ export const AuthProvider = ({ children }) => {
           : (res.data?.message || 'Invalid server response.')
       );
     }
-    const { accessToken, user: userData } = res.data.data;
-    setAccessToken(accessToken);
-    setUser(userData);
-    setShowSplash(true); // Trigger splash animation on register
-    return userData;
+
+    // Automatically authenticate the newly registered user
+    return await login(email, password);
   };
 
   const completeSplash = () => {

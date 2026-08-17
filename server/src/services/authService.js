@@ -39,7 +39,7 @@ class AuthService {
 
   // User Registration
   async register(fullName, email, password, confirmPassword) {
-    if (password !== confirmPassword) {
+    if (confirmPassword !== undefined && password !== confirmPassword) {
       throw new ValidationError('Passwords do not match.');
     }
 
@@ -48,8 +48,8 @@ class AuthService {
       throw new ConflictError('Email is already registered.', 'AUTH_EMAIL_EXISTS');
     }
 
-    // Password strength check
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    // Password strength check (requires uppercase, lowercase, digit, and special character)
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~])[A-Za-z\d!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]{8,}$/;
     if (!passwordRegex.test(password)) {
       throw new ValidationError(
         'Password must be at least 8 characters long and contain uppercase, lowercase, number, and special character.'
@@ -296,7 +296,7 @@ class AuthService {
     }
 
     // Password strength check
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~])[A-Za-z\d!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]{8,}$/;
     if (!passwordRegex.test(newPassword)) {
       throw new ValidationError(
         'Password must be at least 8 characters long and contain uppercase, lowercase, number, and special character.'
