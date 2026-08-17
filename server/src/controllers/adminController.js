@@ -122,6 +122,81 @@ class AdminController {
       next(err);
     }
   }
+
+  /**
+   * Fix files stuck in PROCESSING or ERROR status.
+   * Optionally reassigns ownerId for files that were incorrectly set to 'anonymous'.
+   */
+  async fixStuckFiles(req, res, next) {
+    try {
+      const FileModel = (await import('../models/File.js')).default;
+      const ChunkModel = (await import('../models/Chunk.js')).default;
+      
+      // Find all stuck files (PROCESSING or ERROR)
+      const stuckFiles = await FileModel.find({
+        status: { $in: ['PROCESSING', 'ERROR'] }
+      });
+
+      if (stuckFiles.length === 0) {
+        return res.status(200).json({
+          success: true,
+          message: 'No stuck files found.',
+          data: { fixed: 0 }
+        });
+      }
+
+      const results = [];
+      for (const file of stuckFiles) {
+        // Check if chunks exist for this file
+        const chunkCount = await ChunkModel.countDocuments({ fileId: file.fileId });
+        
+        let newOwnerId = file.ownerId;
+        // Fix 'anonymous' owner — reassign to the requesting admin
+        if (file.ownerId === 'anonymous') {
+          newOwnerId = req.user.userId;
+        }
+
+        if (chunkCount > 0) {
+          // File has chunks — mark as ACTIVE
+          await FileModel.findOneAndUpdate(
+            { fileId: file.fileId },
+            { 
+              $set: { 
+                status: 'ACTIVE', 
+                statusMessage: null,
+                ownerId: newOwnerId,
+                totalChunks: chunkCount
+              } 
+            }
+          );
+          results.push({ fileId: file.fileId, name: file.originalName, action: 'SET_ACTIVE', chunks: chunkCount, ownerId: newOwnerId });
+        } else {
+          // File has no chunks — mark as ERROR with clear message
+          await FileModel.findOneAndUpdate(
+            { fileId: file.fileId },
+            { 
+              $set: { 
+                status: 'ERROR', 
+                statusMessage: 'No chunks found. Please re-upload this file.',
+                ownerId: newOwnerId
+              } 
+            }
+          );
+          results.push({ fileId: file.fileId, name: file.originalName, action: 'SET_ERROR_NO_CHUNKS', ownerId: newOwnerId });
+        }
+      }
+
+      logger.info(`AdminController: Fixed ${results.length} stuck files. Admin: ${req.user.userId}`);
+      
+      return res.status(200).json({
+        success: true,
+        message: `Fixed ${results.length} stuck file(s).`,
+        data: { fixed: results.length, details: results }
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export default new AdminController();

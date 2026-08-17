@@ -33,6 +33,16 @@ const tusServer = new Server({
   }),
   maxSize: env.MAX_FILE_SIZE,
 
+  // Preserve Express req.user across TUS internal request pipeline
+  async onIncomingRequest(req) {
+    // The Express authenticate middleware has already set req.user before tusServer.handle() is called.
+    // However, @tus/server may create new request objects internally.
+    // We store the user info on a custom property that won't be lost.
+    if (req.user) {
+      req._expressUser = req.user;
+    }
+  },
+
   // Hook triggered when upload completes
   async onUploadFinish(req, upload) {
     const filePath = path.resolve(uploadDir, upload.id);
@@ -41,25 +51,68 @@ const tusServer = new Server({
     const filename = decodedMetadata.filename || 'untitled';
     const mimeType = decodedMetadata.filetype || 'application/octet-stream';
     
+    // Extract userId: try Express middleware first, then preserved user, then original req, then JWT from headers
     let userId = req.user?.userId;
-    logger.info(`TusServer debug: has get method = ${typeof req.headers?.get === 'function'}`);
+    
+    // Fallback: check the preserved Express user from onIncomingRequest
+    if (!userId && req._expressUser?.userId) {
+      userId = req._expressUser.userId;
+    }
+    
+    // Fallback: TUS may wrap the original Express request — check if it's accessible
+    if (!userId && req.res?.req?.user?.userId) {
+      userId = req.res.req.user.userId;
+    }
+    
+    // Also check the original req's preserved user
+    if (!userId && req.res?.req?._expressUser?.userId) {
+      userId = req.res.req._expressUser.userId;
+    }
+    
+    // Final fallback: manually decode JWT from Authorization header
     if (!userId) {
-      const authHeader = typeof req.headers?.get === 'function' 
-        ? req.headers.get('authorization') 
-        : (req.headers?.authorization || req.headers?.Authorization);
+      let authHeader = null;
+      if (typeof req.headers?.get === 'function') {
+        authHeader = req.headers.get('authorization');
+      } else if (req.headers) {
+        authHeader = req.headers.authorization || req.headers.Authorization || req.headers['authorization'];
+      }
+      // Also check the original Express request headers if TUS wrapped them
+      if (!authHeader && req.res?.req?.headers) {
+        authHeader = req.res.req.headers.authorization || req.res.req.headers['authorization'];
+      }
+      
       if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1];
         try {
           const payload = jwt.verify(token, env.JWT_SECRET);
           userId = payload.sub;
+          logger.info(`TusServer: Resolved userId from JWT header fallback: ${userId}`);
         } catch (err) {
           logger.warn(`TusServer: Token verification failed in hook fallback: ${err.message}`);
         }
       }
     }
+    
     if (!userId) {
-      userId = 'anonymous';
+      logger.error('TusServer: Could not resolve authenticated user for upload. Rejecting file.');
+      // Clean up the temp file since we can't process it
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      throw {
+        status_code: 401,
+        body: JSON.stringify({
+          success: false,
+          error: {
+            code: 'AUTH_REQUIRED',
+            message: 'Authentication required to upload files. Please log in and try again.'
+          }
+        })
+      };
     }
+    
+    logger.info(`TusServer: Resolved upload owner userId: ${userId}`);
 
     logger.info(`TusServer: Upload finished. ID: ${upload.id}, Name: ${filename}, Size: ${upload.size} bytes, Owner: ${userId}`);
 

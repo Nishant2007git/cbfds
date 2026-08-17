@@ -18,6 +18,9 @@ const configureAdminRoutes = () => {
   // Admin system configurations
   router.post('/system/config', adminController.updateSystemConfig);
 
+  // Fix stuck files (PROCESSING/ERROR)
+  router.post('/fix-stuck-files', adminController.fixStuckFiles);
+
   return router;
 };
 

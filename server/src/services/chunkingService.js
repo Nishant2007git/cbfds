@@ -129,10 +129,14 @@ class ChunkingService {
         { new: true }
       );
 
-      // Increment user storage used
-      const QuotaServiceModule = await import('./quotaService.js');
-      const quotaService = new QuotaServiceModule.default();
-      await quotaService.incrementStorageUsed(userId, updatedFile.fileSize);
+      // Increment user storage used (non-blocking — don't fail the file if quota update fails)
+      try {
+        const QuotaServiceModule = await import('./quotaService.js');
+        const quotaService = new QuotaServiceModule.default();
+        await quotaService.incrementStorageUsed(userId, updatedFile.fileSize);
+      } catch (quotaErr) {
+        logger.warn(`ChunkingService: Could not update storage quota for user ${userId}: ${quotaErr.message}. File ${fileId} is still marked ACTIVE.`);
+      }
 
       // 5. Clean up temporary source file on disk
       try {
