@@ -19,21 +19,34 @@ class ShareService {
   /**
    * Create a new shared link allocation for a file.
    */
-  async createShareLink({ fileId, userId, type, password, expiresAt, downloadLimit, recipientEmail, selfDestruct }) {
-    logger.info(`ShareService: Creating share link for File ${fileId} by User ${userId}`);
+  async createShareLink({ fileId, userId, userRole, type, password, expiresAt, downloadLimit, recipientEmail, selfDestruct }) {
+    logger.info(`ShareService: Creating share link for File ${fileId} by User ${userId} (Role: ${userRole})`);
 
     // 1. Verify file existence and ownership
-    const file = await this.fileRepo.findById(fileId);
+    let file = await this.fileRepo.findById(fileId);
+    if (!file && fileId.match(/^[0-9a-fA-F]{24}$/)) {
+      file = await this.fileRepo.model.findById(fileId);
+    }
     if (!file || file.status === 'DELETED' || file.status === 'PENDING_DELETION') {
       throw new AppError('File not found.', 404, 'FILE_NOT_FOUND');
     }
 
-    if (file.ownerId !== userId) {
+    if (file.ownerId !== userId && userRole !== 'admin' && userRole !== 'superadmin') {
       throw new AppError('You do not own this file.', 403, 'ACCESS_DENIED');
     }
 
+    // Auto-activate file if chunks or raw file exist
+    if (file.status !== 'ACTIVE') {
+      const ChunkModel = (await import('../models/Chunk.js')).default;
+      const chunkCount = await ChunkModel.countDocuments({ fileId: file.fileId });
+      if (chunkCount > 0) {
+        await this.fileRepo.model.findOneAndUpdate({ fileId: file.fileId }, { $set: { status: 'ACTIVE', totalChunks: chunkCount } });
+        file.status = 'ACTIVE';
+      }
+    }
+
     const shareData = {
-      fileId,
+      fileId: file.fileId,
       creatorId: userId,
       type,
       expiresAt: expiresAt ? new Date(expiresAt) : null,

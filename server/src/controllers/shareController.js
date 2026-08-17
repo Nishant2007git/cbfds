@@ -24,6 +24,7 @@ class ShareController {
       const share = await shareService.createShareLink({
         fileId,
         userId,
+        userRole: req.user.role,
         type: shareType,
         password,
         expiresAt,
