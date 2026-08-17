@@ -215,7 +215,8 @@ class DownloadService {
           // Validate individual chunk checksum
           const checksum = crypto.createHash('sha256').update(chunkBuffer).digest('hex');
           if (checksum !== chunk.checksum) {
-            logger.warn(`DownloadService: Integrity checksum mismatch for Chunk: ${chunk.chunkNumber} of File: ${fileId} (Expected: ${chunk.checksum}, Got: ${checksum}). Continuing stream.`);
+            logger.error(`DownloadService: Integrity checksum mismatch for Chunk: ${chunk.chunkNumber} of File: ${fileId} (Expected: ${chunk.checksum}, Got: ${checksum}). Aborting download.`);
+            throw new Error('CHUNK_INTEGRITY_FAILED');
           }
 
           // Slice buffer relative to range bounds

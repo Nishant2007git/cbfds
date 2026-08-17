@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import api, { setAccessToken, setAuthCallbacks } from '../utils/api.js';
+import api, { setAccessToken, setRefreshToken, getRefreshToken, setAuthCallbacks } from '../utils/api.js';
 
 const AuthContext = createContext(null);
 
@@ -11,6 +11,7 @@ export const AuthProvider = ({ children }) => {
   const handleLogoutState = () => {
     setAccessToken(null);
     setUser(null);
+    setRefreshToken(null);
     setShowSplash(false);
   };
 
@@ -29,9 +30,10 @@ export const AuthProvider = ({ children }) => {
     // Check existing session on boot using refresh token cookie
     const initSession = async () => {
       try {
-        const res = await api.post('/auth/refresh');
+        const res = await api.post('/auth/refresh', { refreshToken: getRefreshToken() });
         if (res.data && res.data.data) {
           const { accessToken, user: userData } = res.data.data;
+          setRefreshToken(res.data.data.refreshToken);
           setAccessToken(accessToken);
           setUser(userData);
         } else {
@@ -59,7 +61,8 @@ export const AuthProvider = ({ children }) => {
           : (res.data?.message || 'Invalid server response.')
       );
     }
-    const { accessToken, user: userData } = res.data.data;
+    const { accessToken, refreshToken, user: userData } = res.data.data;
+    setRefreshToken(refreshToken);
     setAccessToken(accessToken);
     setUser(userData);
     setShowSplash(true); // Trigger splash animation on login
@@ -94,7 +97,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await api.post('/auth/logout');
+      await api.post('/auth/logout', { refreshToken: getRefreshToken() });
     } catch (err) {
       // Ignore network errors on logout
     } finally {

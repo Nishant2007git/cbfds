@@ -219,6 +219,14 @@ class AuthService {
 
     return {
       accessToken: newAccessToken,
+      user: {
+        userId: user.userId,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        storageUsed: user.storageUsed,
+        storageQuota: user.storageQuota,
+      },
       refreshToken: newRawRefreshToken,
       expiresIn: 900,
     };

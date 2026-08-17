@@ -48,6 +48,11 @@ const Sidebar = () => {
   const used = user?.storageUsed ?? 0;
   const pct = quota > 0 ? Math.min(100, Math.round((used / quota) * 100)) : 0;
 
+  const roleLabel = user?.role === 'superadmin'
+    ? 'Super Admin'
+    : user?.role === 'admin'
+      ? 'Admin'
+      : 'User';
   const renderNavItem = (item) => {
     const Icon = item.icon;
     const isActive = location.pathname === item.path ||
@@ -102,7 +107,7 @@ const Sidebar = () => {
               <span className="sb-user-email">{user?.email || 'admin@cbfds.com'}</span>
             </div>
           </div>
-          <span className="sb-role-badge">Super Admin</span>
+          <span className="sb-role-badge">{roleLabel}</span>
         </div>
 
         {/* Storage Section */}
@@ -120,9 +125,6 @@ const Sidebar = () => {
           <div className="sb-storage-pct">{pct}%</div>
         </div>
 
-        <button className="btn btn-secondary sb-upgrade-btn">
-          Upgrade Plan
-        </button>
 
         <button onClick={logout} className="sb-logout-btn">
           <LogOut size={16} />
@@ -172,12 +174,12 @@ const Sidebar = () => {
                 <div className="drawer-avatar">{initials}</div>
                 <h4 className="drawer-username">{user?.fullName || 'System Admin'}</h4>
                 <span className="drawer-email">{user?.email || 'admin@cbfds.com'}</span>
-                <span className="sb-role-badge">Super Admin</span>
+                <span className="sb-role-badge">{roleLabel}</span>
               </div>
 
               {/* Settings Menu List */}
               <div className="drawer-settings-list">
-                <div className="settings-item">
+                <div className="settings-item settings-item-disabled" aria-disabled="true" title="This feature is not available yet">
                   <div className="settings-item-left">
                     <User size={16} />
                     <span>Account Settings</span>
@@ -185,7 +187,7 @@ const Sidebar = () => {
                   <ChevronRight size={14} className="chevron" />
                 </div>
 
-                <div className="settings-item">
+                <div className="settings-item settings-item-disabled" aria-disabled="true" title="This feature is not available yet">
                   <div className="settings-item-left">
                     <Shield size={16} />
                     <span>Security</span>
@@ -193,7 +195,7 @@ const Sidebar = () => {
                   <ChevronRight size={14} className="chevron" />
                 </div>
 
-                <div className="settings-item">
+                <div className="settings-item settings-item-disabled" aria-disabled="true" title="This feature is not available yet">
                   <div className="settings-item-left">
                     <Smartphone size={16} />
                     <span>Devices</span>
@@ -201,7 +203,7 @@ const Sidebar = () => {
                   <div className="badge-pill">3</div>
                 </div>
 
-                <div className="settings-item">
+                <div className="settings-item settings-item-disabled" aria-disabled="true" title="This feature is not available yet">
                   <div className="settings-item-left">
                     <Bell size={16} />
                     <span>Notifications</span>
@@ -209,7 +211,7 @@ const Sidebar = () => {
                   <ChevronRight size={14} className="chevron" />
                 </div>
 
-                <div className="settings-item">
+                <div className="settings-item settings-item-disabled" aria-disabled="true" title="This feature is not available yet">
                   <div className="settings-item-left">
                     <Settings size={16} />
                     <span>Preferences</span>
@@ -217,7 +219,7 @@ const Sidebar = () => {
                   <ChevronRight size={14} className="chevron" />
                 </div>
 
-                <div className="settings-item">
+                <div className="settings-item settings-item-disabled" aria-disabled="true" title="This feature is not available yet">
                   <div className="settings-item-left">
                     <HelpCircle size={16} />
                     <span>Help & Support</span>
@@ -561,6 +563,11 @@ const Sidebar = () => {
         }
 
         .settings-item {
+        .settings-item-disabled {
+          cursor: not-allowed;
+          opacity: 0.55;
+          pointer-events: none;
+        }
           display: flex;
           align-items: center;
           justify-content: space-between;

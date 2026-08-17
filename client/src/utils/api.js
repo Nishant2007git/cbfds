@@ -1,5 +1,22 @@
 import axios from 'axios';
 
+const refreshTokenStorageKey = 'cbfds_refresh_token';
+let refreshTokenMemory = typeof window === 'undefined'
+  ? null
+  : window.sessionStorage.getItem(refreshTokenStorageKey);
+
+export const setRefreshToken = (token) => {
+  refreshTokenMemory = token || null;
+  if (typeof window !== 'undefined') {
+    if (token) {
+      window.sessionStorage.setItem(refreshTokenStorageKey, token);
+    } else {
+      window.sessionStorage.removeItem(refreshTokenStorageKey);
+    }
+  }
+};
+
+export const getRefreshToken = () => refreshTokenMemory;
 let accessTokenMemory = null;
 let onTokenRefreshedCallback = null;
 let onAuthFailedCallback = null;
@@ -78,10 +95,11 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshResponse = await api.post('/auth/refresh');
+        const refreshResponse = await api.post('/auth/refresh', { refreshToken: getRefreshToken() });
         const { accessToken, user } = refreshResponse.data.data;
         
         setAccessToken(accessToken);
+        setRefreshToken(refreshResponse.data.data.refreshToken);
         if (onTokenRefreshedCallback) {
           onTokenRefreshedCallback(accessToken, user);
         }
@@ -92,6 +110,7 @@ api.interceptors.response.use(
       } catch (refreshErr) {
         processQueue(refreshErr, null);
         setAccessToken(null);
+        setRefreshToken(null);
         if (onAuthFailedCallback) {
           onAuthFailedCallback();
         }

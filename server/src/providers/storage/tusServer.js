@@ -207,18 +207,8 @@ const tusServer = new Server({
 
       logger.info(`TusServer: File metadata record created in DB. ID: ${fileRecord.fileId}, Status: PROCESSING`);
 
-      // 3. Trigger immediate background chunking and enqueue to fileProcessingQueue
-      setImmediate(async () => {
-        try {
-          logger.info(`TusServer: Starting direct background chunking for File: ${upload.id}`);
-          const ChunkingServiceModule = await import('../../services/chunkingService.js');
-          const chunkService = new ChunkingServiceModule.default();
-          await chunkService.chunkAndStore(upload.id, filePath, userId);
-          logger.info(`TusServer: Direct background chunking finished successfully for File: ${upload.id}`);
-        } catch (chunkErr) {
-          logger.error(`TusServer: Direct background chunking failed for File: ${upload.id}: ${chunkErr.message}`);
-        }
-      });
+      // 3. Queue exactly one chunking job; direct processing plus a worker job
+      // would duplicate chunks and count the storage quota twice.
 
       try {
         await fileProcessingQueue.add('chunk-file', {
