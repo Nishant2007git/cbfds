@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { HardDrive, Lock, Mail, User as UserIcon, ArrowRight, Info, Eye, EyeOff, Shield, Zap } from 'lucide-react';
+import { HardDrive, Lock, Mail, User as UserIcon, ArrowRight, Eye, EyeOff, Shield, Zap } from 'lucide-react';
 
 const Login = () => {
   const { login, register } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
   const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('admin@library.com');
-  const [password, setPassword] = useState('Password123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -89,8 +89,8 @@ const Login = () => {
             onClick={() => {
               setIsRegister(false);
               setError('');
-              setEmail('admin@library.com');
-              setPassword('Password123!');
+              setEmail('');
+              setPassword('');
               setConfirmPassword('');
             }}
           >
@@ -113,19 +113,6 @@ const Login = () => {
           </button>
           <div className={`auth-tab-indicator ${isRegister ? 'right' : 'left'}`} />
         </div>
-
-        {/* Demo credentials */}
-        {!isRegister && (
-          <div className="demo-box animate-fadeInUp">
-            <div className="demo-box-icon">
-              <Info size={14} />
-            </div>
-            <div className="demo-box-content">
-              <span className="demo-label">Demo Credentials</span>
-              <span className="demo-creds">admin@library.com · Password123!</span>
-            </div>
-          </div>
-        )}
 
         {/* Error alert */}
         {error && (

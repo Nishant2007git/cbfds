@@ -103,9 +103,11 @@ const sweepTemporaryUploads = async () => {
   let count = 0;
 
   for (const file of files) {
+    if (file === 'chunks_store' || file === 'persistent_storage') continue;
     const filePath = path.join(uploadDir, file);
     try {
       const stats = fs.statSync(filePath);
+      if (stats.isDirectory()) continue;
       const ageMs = now - stats.mtimeMs;
       
       if (ageMs > maxAgeMs) {

@@ -48,7 +48,7 @@ class ChunkingService {
     try {
       await this._initStorage();
 
-      const bucket = env.STORAGE_BUCKET || 'cbfds-chunks';
+      const bucket = (env.STORAGE_BUCKET || 'cbfds-chunks').trim();
       const chunkSize = env.DEFAULT_CHUNK_SIZE || 5242880; // Default 5 MB
 
       // 1. Ensure target storage bucket exists (with fallback to MockStorageProvider if S3/MinIO fails)

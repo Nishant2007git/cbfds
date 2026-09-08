@@ -9,7 +9,7 @@ class MockStorageProvider extends IStorageProvider {
     super();
     this.storage = new Map(); // key format: "bucket/key" -> { data: Buffer, metadata: Object }
     this.buckets = new Set(['cbfds-chunks']);
-    this.baseDir = path.resolve(process.cwd(), 'uploads_temp', 'chunks_store');
+    this.baseDir = path.resolve(process.cwd(), 'persistent_storage', 'chunks_store');
     
     try {
       if (!fs.existsSync(this.baseDir)) {
@@ -21,9 +21,10 @@ class MockStorageProvider extends IStorageProvider {
   }
 
   _getDiskPath(bucket, key) {
-    // Sanitize key path for local filesystem storage
+    // Sanitize bucket & key path for safe local filesystem storage
+    const cleanBucket = (bucket || 'cbfds-chunks').trim().replace(/[^a-zA-Z0-9.\-_]/g, '_');
     const safeKey = key.replace(/[^a-zA-Z0-9.\-_/]/g, '_');
-    return path.join(this.baseDir, bucket, safeKey);
+    return path.join(this.baseDir, cleanBucket, safeKey);
   }
 
   async putObject(bucket, key, data, metadata = {}) {
@@ -40,12 +41,13 @@ class MockStorageProvider extends IStorageProvider {
       buffer = Buffer.from(data);
     }
     
-    this.buckets.add(bucket);
-    this.storage.set(`${bucket}/${key}`, { data: buffer, metadata });
+    const cleanBucket = (bucket || 'cbfds-chunks').trim();
+    this.buckets.add(cleanBucket);
+    this.storage.set(`${cleanBucket}/${key}`, { data: buffer, metadata });
 
     // Also persist to disk so chunks survive server reboots
     try {
-      const filePath = this._getDiskPath(bucket, key);
+      const filePath = this._getDiskPath(cleanBucket, key);
       const dir = path.dirname(filePath);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
@@ -57,20 +59,39 @@ class MockStorageProvider extends IStorageProvider {
   }
 
   async getObject(bucket, key) {
-    const item = this.storage.get(`${bucket}/${key}`);
+    const cleanBucket = (bucket || 'cbfds-chunks').trim();
+    const item = this.storage.get(`${cleanBucket}/${key}`) || this.storage.get(`${bucket}/${key}`);
     if (item && item.data) {
       return Readable.from(item.data);
     }
 
-    // Try reading from disk fallback
-    const filePath = this._getDiskPath(bucket, key);
+    // Try reading from primary persistent disk path
+    const filePath = this._getDiskPath(cleanBucket, key);
     if (fs.existsSync(filePath)) {
       const data = fs.readFileSync(filePath);
-      this.storage.set(`${bucket}/${key}`, { data, metadata: {} });
+      this.storage.set(`${cleanBucket}/${key}`, { data, metadata: {} });
       return Readable.from(data);
     }
 
-    const err = new Error(`Object not found: ${bucket}/${key}`);
+    // Check legacy chunk store locations (in case uploads were made in different CWD or previous versions)
+    const sanitizedBucket = cleanBucket.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const safeKey = key.replace(/[^a-zA-Z0-9.\-_/]/g, '_');
+    const legacyPaths = [
+      path.resolve(process.cwd(), 'uploads_temp', 'chunks_store', sanitizedBucket, safeKey),
+      path.resolve(process.cwd(), 'server', 'uploads_temp', 'chunks_store', sanitizedBucket, safeKey),
+      path.resolve(process.cwd(), '..', 'uploads_temp', 'chunks_store', sanitizedBucket, safeKey),
+      path.resolve(process.cwd(), '..', 'server', 'uploads_temp', 'chunks_store', sanitizedBucket, safeKey)
+    ];
+
+    for (const legPath of legacyPaths) {
+      if (fs.existsSync(legPath)) {
+        const data = fs.readFileSync(legPath);
+        this.storage.set(`${cleanBucket}/${key}`, { data, metadata: {} });
+        return Readable.from(data);
+      }
+    }
+
+    const err = new Error(`Object not found: ${cleanBucket}/${key}`);
     err.code = 'NoSuchKey';
     throw err;
   }

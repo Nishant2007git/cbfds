@@ -28,20 +28,20 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRY: z.string().default('7d'),
 
   // Storage
-  STORAGE_PROVIDER: z.enum(['minio', 's3', 'azure', 'gcs']).default('minio'),
-  STORAGE_BUCKET: z.string().default('cbfds-chunks'),
+  STORAGE_PROVIDER: z.string().transform((val) => val.trim().toLowerCase()).pipe(z.enum(['minio', 's3', 'azure', 'gcs'])).default('minio'),
+  STORAGE_BUCKET: z.string().transform((val) => val.trim()).default('cbfds-chunks'),
 
   // MinIO (optional — only when STORAGE_PROVIDER=minio)
-  MINIO_ENDPOINT: z.string().optional().default('localhost'),
-  MINIO_PORT: z.string().transform((val) => parseInt(val, 10)).optional().default('9000'),
-  MINIO_ACCESS_KEY: z.string().optional().default('minioadmin'),
-  MINIO_SECRET_KEY: z.string().optional().default('minioadmin'),
-  MINIO_USE_SSL: z.string().transform((val) => val === 'true').optional().default('false'),
+  MINIO_ENDPOINT: z.string().optional().transform((val) => val ? val.trim() : 'localhost').default('localhost'),
+  MINIO_PORT: z.string().transform((val) => parseInt(val.trim(), 10)).optional().default('9000'),
+  MINIO_ACCESS_KEY: z.string().optional().transform((val) => val ? val.trim() : 'minioadmin').default('minioadmin'),
+  MINIO_SECRET_KEY: z.string().optional().transform((val) => val ? val.trim() : 'minioadmin').default('minioadmin'),
+  MINIO_USE_SSL: z.string().transform((val) => val.trim() === 'true').optional().default('false'),
 
   // AWS S3 (optional — only when STORAGE_PROVIDER=s3)
-  AWS_ACCESS_KEY_ID: z.string().optional(),
-  AWS_SECRET_ACCESS_KEY: z.string().optional(),
-  AWS_REGION: z.string().optional().default('eu-north-1'),
+  AWS_ACCESS_KEY_ID: z.string().optional().transform((val) => val ? val.trim() : undefined),
+  AWS_SECRET_ACCESS_KEY: z.string().optional().transform((val) => val ? val.trim() : undefined),
+  AWS_REGION: z.string().optional().transform((val) => val ? val.trim() : 'eu-north-1').default('eu-north-1'),
 
   // Email (optional — gracefully degrades without email)
   EMAIL_PROVIDER: z.enum(['smtp', 'sendgrid', 'ses']).default('smtp'),

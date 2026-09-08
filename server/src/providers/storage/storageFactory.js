@@ -37,7 +37,7 @@ class StorageFactory {
       case 's3':
         try {
           // If demo AWS credentials are set (e.g. on free hosting), use MockStorageProvider fallback
-          const awsKey = process.env.AWS_ACCESS_KEY_ID || env.AWS_ACCESS_KEY_ID;
+          const awsKey = (process.env.AWS_ACCESS_KEY_ID || env.AWS_ACCESS_KEY_ID || '').trim();
           if (!awsKey || awsKey.startsWith('demo_')) {
             logger.info('StorageFactory: Demo AWS keys detected. Using MockStorageProvider for free hosting.');
             if (!mockInstance) {
@@ -48,9 +48,9 @@ class StorageFactory {
           }
           const { default: S3Provider } = await import('./S3Provider.js');
           return new S3Provider({
-            region: process.env.AWS_REGION || 'us-east-1',
+            region: (process.env.AWS_REGION || env.AWS_REGION || 'eu-north-1').trim(),
             accessKeyId: awsKey,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || env.AWS_SECRET_ACCESS_KEY,
+            secretAccessKey: (process.env.AWS_SECRET_ACCESS_KEY || env.AWS_SECRET_ACCESS_KEY || '').trim(),
           });
         } catch (err) {
           logger.warn('Failed to initialize S3Provider strategy, falling back to MockStorageProvider:', err);

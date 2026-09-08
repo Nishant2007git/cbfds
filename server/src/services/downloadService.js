@@ -192,13 +192,14 @@ class DownloadService {
           logger.debug(`DownloadService: Streaming chunk ${chunk.chunkNumber} for range: ${rangeStart}-${rangeEnd}`);
 
           let chunkStream = null;
+          const bucket = (chunk.storageBucket || env.STORAGE_BUCKET || 'cbfds-chunks').trim();
           // Try primary storage first, then fallback to local disk storage
           try {
-            chunkStream = await storage.getObject(chunk.storageBucket, chunk.storageKey);
+            chunkStream = await storage.getObject(bucket, chunk.storageKey);
           } catch (storageErr) {
             logger.warn(`DownloadService: Failed to getObject from primary storage: ${storageErr.message}. Trying local fallback storage.`);
             try {
-              chunkStream = await fallback.getObject(chunk.storageBucket, chunk.storageKey);
+              chunkStream = await fallback.getObject(bucket, chunk.storageKey);
             } catch (fallbackErr) {
               logger.error(`DownloadService: Chunk missing in both primary and fallback storage: ${fallbackErr.message}`);
               throw fallbackErr;
