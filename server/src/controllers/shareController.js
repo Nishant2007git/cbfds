@@ -8,6 +8,15 @@ import logger from '../utils/logger.js';
 const shareService = new ShareService();
 const downloadService = new DownloadService();
 
+const parseRangeHeader = (rangeHeader) => {
+  if (!rangeHeader) return null;
+  const match = /^bytes=(\d+)-(\d*)$/.exec(rangeHeader);
+  if (!match) {
+    throw new AppError('Invalid Range header.', 416, 'RANGE_NOT_SATISFIABLE');
+  }
+  return { start: Number.parseInt(match[1], 10), end: match[2] ? Number.parseInt(match[2], 10) : undefined };
+};
+
 class ShareController {
   /**
    * Create a new file share link (Internal or External).
@@ -103,7 +112,7 @@ class ShareController {
   async getShare(req, res, next) {
     const { shareId } = req.params;
     try {
-      const share = await shareService.getShareDetails(shareId, req.user.userId);
+      const share = await shareService.getShareDetails(shareId, req.user.userId, req.user.role);
       return res.status(200).json({
         success: true,
         data: share
@@ -189,6 +198,29 @@ class ShareController {
     }
   }
 
+  /** Download an internal share after checking the named recipient. */
+  async downloadInternalShare(req, res, next) {
+    const { shareId } = req.params;
+    try {
+      const share = await shareService.getShareDetails(shareId, req.user.userId, req.user.role);
+      if (share.type !== 'INTERNAL') {
+        throw new AppError('Use the public download endpoint for external shares.', 400, 'INVALID_SHARE_TYPE');
+      }
+
+      await shareService.recordDownload(shareId);
+      const { stream, fileRecord, isPartial, headers } = await downloadService.downloadFile(share.fileId, {
+        range: parseRangeHeader(req.headers.range)
+      });
+      res.writeHead(isPartial ? 206 : 200, {
+        ...headers,
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(fileRecord.sanitizedName || 'download')}"`
+      });
+      stream.pipe(res);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   /**
    * Public Endpoint: Reconstruct chunks sequentially and stream the file payload.
    */
@@ -216,17 +248,15 @@ class ShareController {
       }
 
       // 2. Parse HTTP Range header if requested by client
-      let range = null;
       const rangeHeader = req.headers.range;
-      if (rangeHeader) {
-        const parts = rangeHeader.replace(/bytes=/, '').split('-');
-        const start = parseInt(parts[0], 10);
-        const end = parts[1] ? parseInt(parts[1], 10) : undefined;
-        range = { start, end };
-      }
+      const range = parseRangeHeader(rangeHeader);
 
       // 3. Resolve share link document to obtain file ID
       const share = await shareService.shareRepo.findById(token);
+
+      // Reserve the download before beginning a potentially long stream. This
+      // keeps self-destruct and maximum-download links safe under concurrency.
+      await shareService.recordDownload(token);
 
       // 4. Retrieve streaming reconstructed pipeline
       const { stream, fileRecord, isPartial, headers } = await downloadService.downloadFile(share.fileId, { range });
@@ -244,13 +274,10 @@ class ShareController {
         );
       }
 
-      // 5. Update download metrics
-      await shareService.recordDownload(token);
-
-      // 6. Pipe reconstructed stream to output response
+      // 5. Pipe reconstructed stream to output response
       res.writeHead(isPartial ? 206 : 200, {
         ...headers,
-        'Content-Disposition': `attachment; filename="${fileRecord.originalName}"`
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(fileRecord.sanitizedName || 'download')}"`
       });
 
       stream.pipe(res);

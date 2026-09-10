@@ -31,8 +31,8 @@ services:
     restart: always
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadminpassword
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in the deployment environment}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in the deployment environment}
     volumes:
       - minio-prod-data:/data
     networks:
@@ -49,17 +49,18 @@ services:
       NODE_ENV: production
       PORT: 3000
       API_VERSION: v1
-      APP_URL: http://localhost
-      FRONTEND_URL: http://localhost
-      MONGODB_URI: mongodb://mongodb:27017/cbfds
+      APP_URL: ${APP_URL:?Set APP_URL in the deployment environment}
+      FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL in the deployment environment}
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS in the deployment environment}
+      MONGODB_URI: ${MONGODB_URI:?Set MONGODB_URI in the deployment environment}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: production_super_secret_jwt_key_at_least_32_chars
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in the deployment environment}
       STORAGE_PROVIDER: minio
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadminpassword
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in the deployment environment}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in the deployment environment}
       STORAGE_BUCKET: cbfds-chunks
     depends_on:
       - mongodb

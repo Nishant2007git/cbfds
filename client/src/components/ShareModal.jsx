@@ -13,6 +13,7 @@ const ShareModal = ({ file, onClose }) => {
   
   const [loading, setLoading] = useState(false);
   const [generatedLink, setGeneratedLink] = useState('');
+  const [createdShareType, setCreatedShareType] = useState(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
 
@@ -35,8 +36,10 @@ const ShareModal = ({ file, onClose }) => {
       const res = await api.post('/shares', payload);
       const shareData = res.data.data;
       
-      const fullUrl = `${window.location.origin}/share/${shareData.shareId}`;
-      setGeneratedLink(fullUrl);
+      setCreatedShareType(shareData.type);
+      // Internal shares are recipient-bound and intentionally have no public
+      // bearer URL to copy or expose.
+      setGeneratedLink(shareData.type === 'EXTERNAL' ? `${window.location.origin}/share/${shareData.shareId}` : '');
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Failed to generate share link.');
     } finally {
@@ -60,7 +63,7 @@ const ShareModal = ({ file, onClose }) => {
           </button>
         </div>
 
-        {!generatedLink ? (
+        {!createdShareType ? (
           <form onSubmit={handleCreateShare} className="share-form">
             {error && <div className="auth-error-alert">{error}</div>}
 
@@ -165,14 +168,14 @@ const ShareModal = ({ file, onClose }) => {
           </form>
         ) : (
           <div className="result-container">
-            <p className="success-msg">Share link created successfully!</p>
-            <div className="link-copy-box">
+            <p className="success-msg">{createdShareType === 'EXTERNAL' ? 'Share link created successfully!' : 'File shared directly with the selected user.'}</p>
+            {createdShareType === 'EXTERNAL' && <div className="link-copy-box">
               <input type="text" readOnly value={generatedLink} className="link-input" />
               <button onClick={copyToClipboard} className="btn btn-primary copy-btn">
                 {copied ? <Check size={16} /> : <Copy size={16} />}
                 <span>{copied ? 'Copied' : 'Copy'}</span>
               </button>
-            </div>
+            </div>}
             <button onClick={onClose} className="btn btn-secondary close-modal-btn">
               Done
             </button>

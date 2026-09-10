@@ -47,7 +47,7 @@ const CommandPalette = () => {
     fetchSearchFiles();
   }, [isOpen]);
 
-  // Global keys listener
+  // Global keys listener & custom event
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -58,8 +58,17 @@ const CommandPalette = () => {
         setIsOpen(false);
       }
     };
+
+    const handleCustomOpen = () => {
+      setIsOpen(true);
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('open-command-palette', handleCustomOpen);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('open-command-palette', handleCustomOpen);
+    };
   }, []);
 
   // Reset index on query change

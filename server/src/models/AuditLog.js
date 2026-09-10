@@ -17,6 +17,7 @@ const auditLogSchema = new mongoose.Schema({
     type: String,
     required: true,
     enum: [
+      'REGISTER',
       'LOGIN',
       'LOGOUT',
       'UPLOAD_FILE',

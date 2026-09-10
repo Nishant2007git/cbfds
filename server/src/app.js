@@ -40,8 +40,10 @@ const createApp = async () => {
   await connectDatabase();
   connectRedis();
 
-  // Seed default admin and user accounts if missing
-  try {
+  // Demo accounts are helpful locally but must never be created by a deployed
+  // instance. Make them explicitly opt-in.
+  if (env.NODE_ENV === 'development' && process.env.SEED_DEMO_ACCOUNTS === 'true') {
+    try {
     const User = (await import('./models/User.js')).default;
     const { v4: uuidv4 } = await import('uuid');
 
@@ -72,24 +74,32 @@ const createApp = async () => {
       });
       logger.info('Seeded Standard User account: user@example.com');
     }
-  } catch (seedErr) {
-    logger.warn(`Default accounts seed check warning: ${seedErr.message}`);
+    } catch (seedErr) {
+      logger.warn(`Default accounts seed check warning: ${seedErr.message}`);
+    }
   }
 
   // Global Middleware Stack
   app.use(helmet());
+  const allowedOrigins = new Set(
+    (process.env.CORS_ORIGINS || env.FRONTEND_URL)
+      .split(',')
+      .map((origin) => origin.trim().replace(/\/$/, ''))
+      .filter(Boolean)
+  );
   app.use(cors({
     origin: (origin, callback) => {
-      // allow requests with no origin (mobile apps, curl, server-to-server)
+      // Non-browser clients authenticate with bearer tokens and do not need a
+      // CORS header. Browser origins must be explicitly allow-listed.
       if (!origin) return callback(null, true);
-      const cleanOrigin = origin.trim().replace(/[\r\n]/g, '');
-      return callback(null, cleanOrigin);
+      const cleanOrigin = origin.trim().replace(/\/$/, '');
+      return callback(null, allowedOrigins.has(cleanOrigin));
     },
-    credentials: true
+    credentials: false
   }));
 
   // Route resumable upload requests to Tus server directly (handles raw stream)
-  app.all(`/api/${env.API_VERSION}/uploads*`, authenticate, validateUploadQuota, (req, res) => {
+  app.all(`/api/${env.API_VERSION}/uploads*`, generalApiLimiter, authenticate, validateUploadQuota, (req, res) => {
     tusServer.handle(req, res);
   });
 

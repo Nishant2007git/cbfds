@@ -264,5 +264,62 @@ describe('Admin, Quota, & Sharing Integration Tests', () => {
       const shareDoc = await shareRepo.findById(shareId);
       expect(shareDoc.downloadCount).to.equal(1);
     });
+
+    it('keeps internal shares private while allowing the named recipient to download them', async () => {
+      const recipientId = uuidv4();
+      const recipient = new User({
+        userId: recipientId,
+        fullName: 'Internal Recipient',
+        email: 'recipient@example.com',
+        passwordHash: 'dummy_hash',
+        role: 'user'
+      });
+      await recipient.save();
+      const recipientToken = jwt.sign(
+        { sub: recipientId, email: recipient.email, role: 'user' },
+        process.env.JWT_SECRET
+      );
+
+      const createRes = await request(app)
+        .post('/api/v1/shares')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ fileId, shareType: 'INTERNAL', recipientEmail: recipient.email });
+      expect(createRes.status).to.equal(201);
+      const internalShareId = createRes.body.data.shareId;
+
+      const publicRes = await request(app).get(`/api/v1/share/${internalShareId}`).send();
+      expect(publicRes.status).to.equal(404);
+
+      const recipientRes = await request(app)
+        .get(`/api/v1/shares/${internalShareId}/download`)
+        .set('Authorization', `Bearer ${recipientToken}`)
+        .send();
+      expect(recipientRes.status).to.equal(200);
+      expect(recipientRes.text).to.equal('hello shared file contents');
+    });
+
+    it('rejects invalid share mutations before they reach persistence', async () => {
+      const res = await request(app)
+        .post('/api/v1/shares')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ fileId, shareType: 'EXTERNAL', downloadLimit: 0 });
+      expect(res.status).to.equal(400);
+      expect(res.body.error.code).to.equal('VALIDATION_ERROR');
+    });
+
+    it('atomically consumes a self-destruct share under concurrent download requests', async () => {
+      const createRes = await request(app)
+        .post('/api/v1/shares')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ fileId, shareType: 'EXTERNAL', selfDestruct: true });
+      expect(createRes.status).to.equal(201);
+      const oneTimeShareId = createRes.body.data.shareId;
+
+      const [first, second] = await Promise.all([
+        request(app).get(`/api/v1/share/${oneTimeShareId}/download`).send(),
+        request(app).get(`/api/v1/share/${oneTimeShareId}/download`).send()
+      ]);
+      expect([first.status, second.status].sort()).to.deep.equal([200, 410]);
+    });
   });
 });

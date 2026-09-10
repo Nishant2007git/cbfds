@@ -68,8 +68,8 @@ describe('Authentication Integration Tests', () => {
 
       expect(res.status).to.equal(201);
       expect(res.body.success).to.be.true;
-      expect(res.body.data).to.have.property('userId');
-      expect(res.body.data.email).to.equal('john@example.com');
+      expect(res.body.data.user).to.have.property('userId');
+      expect(res.body.data.user.email).to.equal('john@example.com');
 
       // Verify DB persistence
       const user = await User.findOne({ email: 'john@example.com' });
@@ -134,6 +134,20 @@ describe('Authentication Integration Tests', () => {
     });
   });
 
+  describe('Browser origin controls', () => {
+    it('only returns CORS headers for the configured frontend origin', async () => {
+      const allowed = await request(app)
+        .get('/api/v1/health')
+        .set('Origin', 'http://localhost:5173');
+      expect(allowed.headers['access-control-allow-origin']).to.equal('http://localhost:5173');
+
+      const blocked = await request(app)
+        .get('/api/v1/health')
+        .set('Origin', 'https://attacker.example');
+      expect(blocked.headers).to.not.have.property('access-control-allow-origin');
+    });
+  });
+
   describe('POST /auth/login', () => {
     beforeEach(async () => {
       // Register standard user
@@ -164,7 +178,9 @@ describe('Authentication Integration Tests', () => {
 
       // Verify session token hash stored in DB
       const tokensCount = await RefreshToken.countDocuments();
-      expect(tokensCount).to.equal(1);
+      // Registration creates an auto-login session and this explicit login
+      // creates a second session.
+      expect(tokensCount).to.equal(2);
     });
 
     it('should fail login if password is incorrect', async () => {

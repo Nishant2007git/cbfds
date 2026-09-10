@@ -1,6 +1,8 @@
 import express from 'express';
 import FileController from '../controllers/fileController.js';
 import authenticate from '../middleware/auth.js';
+import validate from '../middleware/validator.js';
+import { updateTagsSchema } from '../utils/validators.js';
 
 const configureFileRoutes = () => {
   const router = express.Router();
@@ -16,7 +18,7 @@ const configureFileRoutes = () => {
   router.post('/:fileId/restore', fileController.restoreVersion);
   router.delete('/:fileId', fileController.deleteFile);
   router.get('/:fileId/download', fileController.downloadFile);
-  router.post('/:fileId/tags', fileController.updateTags);
+  router.post('/:fileId/tags', validate(updateTagsSchema), fileController.updateTags);
 
   return router;
 };

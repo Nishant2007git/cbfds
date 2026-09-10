@@ -18,8 +18,11 @@ export const validateUploadQuota = async (req, res, next) => {
       return next(new AppError('Upload-Length header is required on file creation.', 400, 'MISSING_UPLOAD_LENGTH'));
     }
 
-    const uploadLength = parseInt(uploadLengthStr, 10);
-    if (isNaN(uploadLength) || uploadLength <= 0) {
+    if (!/^\d+$/.test(uploadLengthStr)) {
+      return next(new AppError('Upload-Length header must be a positive integer.', 400, 'INVALID_UPLOAD_LENGTH'));
+    }
+    const uploadLength = Number.parseInt(uploadLengthStr, 10);
+    if (!Number.isSafeInteger(uploadLength) || uploadLength <= 0) {
       return next(new AppError('Upload-Length header must be a positive integer.', 400, 'INVALID_UPLOAD_LENGTH'));
     }
 

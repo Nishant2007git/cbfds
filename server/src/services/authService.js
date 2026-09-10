@@ -389,6 +389,13 @@ class AuthService {
       throw new ValidationError('Current password is incorrect.', 'AUTH_INVALID_CREDENTIALS');
     }
 
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~])[A-Za-z\d!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      throw new ValidationError(
+        'Password must be at least 8 characters long and contain uppercase, lowercase, number, and special character.'
+      );
+    }
+
     // Password history validation
     for (const historicHash of user.passwordHistory) {
       const isDuplicate = await bcrypt.compare(newPassword, historicHash);

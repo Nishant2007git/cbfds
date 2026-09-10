@@ -3,7 +3,11 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
+# Keep lockfiles in version control so production builds are reproducible and
+# security dependency updates are actually deployed.
+!package-lock.json
+!server/package-lock.json
+!client/package-lock.json
 
 # Environment variables
 .env
@@ -29,6 +33,7 @@ Thumbs.db
 
 # Project temp uploads & logs
 server/uploads_temp/
+server/persistent_storage/
 server/logs/
 *.log
 

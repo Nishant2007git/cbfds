@@ -39,10 +39,9 @@ function AppContent() {
 
   return (
     <>
-      {/* Splash screen overlay — plays after login/register */}
+      {/* Splash screen overlay — plays on login/register */}
       {showSplash && (
         <SplashScreen
-          videoSrc="/intro-animation.mp4"
           onComplete={completeSplash}
         />
       )}

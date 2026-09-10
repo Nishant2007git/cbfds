@@ -145,8 +145,8 @@ class AuthController {
   changePassword = async (req, res, next) => {
     try {
       const userId = req.user.userId;
-      const { currentPassword, newPassword, confirmNewPassword } = req.body;
-      await this.authService.changePassword(userId, currentPassword, newPassword, confirmNewPassword);
+      const { currentPassword, newPassword } = req.body;
+      await this.authService.changePassword(userId, currentPassword, newPassword);
       return res.status(200).json({
         success: true,
         message: 'Password changed successfully.'

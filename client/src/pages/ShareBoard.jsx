@@ -118,7 +118,7 @@ const ShareBoard = () => {
               {filteredShares.map((share, idx) => {
                 const isActive = isShareActive(share);
                 const fileObj = share.file || {};
-                const shareUrl = `${window.location.origin}/share/${share.shareId}`;
+                const shareUrl = share.type === 'EXTERNAL' ? `${window.location.origin}/share/${share.shareId}` : null;
 
                 return (
                   <div key={share.shareId} className={`share-item-card glass-card ${!isActive ? 'revoked' : ''} animate-fadeInUp stagger-${Math.min(idx + 1, 8)}`}>
@@ -128,9 +128,9 @@ const ShareBoard = () => {
                         <span className="file-size-badge">{fileObj.fileSize ? formatBytes(fileObj.fileSize) : 'N/A'}</span>
                       </div>
                       
-                      <div className="card-link-row">
+                      {shareUrl && <div className="card-link-row">
                         <span className="link-url-text" onClick={() => handleCopyLink(share.shareId)}>{shareUrl}</span>
-                      </div>
+                      </div>}
 
                       <div className="card-meta-row">
                         <span className="meta-chip">
@@ -147,6 +147,7 @@ const ShareBoard = () => {
                             <Lock size={11} /> Password Active
                           </span>
                         )}
+                        {share.type === 'INTERNAL' && <span className="meta-chip">Internal recipient-only share</span>}
                       </div>
                     </div>
 
@@ -156,22 +157,22 @@ const ShareBoard = () => {
                       </span>
                       
                       <div className="actions-group">
-                        <button
+                        {shareUrl && <button
                           onClick={() => handleCopyLink(share.shareId)}
                           className="action-btn"
                           title="Copy Link"
                           disabled={!isActive}
                         >
                           {copiedId === share.shareId ? <Check size={14} className="text-green" /> : <Copy size={14} />}
-                        </button>
-                        <button
+                        </button>}
+                        {shareUrl && <button
                           onClick={() => window.open(shareUrl, '_blank')}
                           className="action-btn"
                           title="Open Link"
                           disabled={!isActive}
                         >
                           <ExternalLink size={14} />
-                        </button>
+                        </button>}
                         <button
                           onClick={() => handleRevoke(share.shareId)}
                           className="action-btn danger-hover"

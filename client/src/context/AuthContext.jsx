@@ -101,6 +101,16 @@ export const AuthProvider = ({ children }) => {
     return await login(email, password);
   };
 
+  const triggerSplash = () => {
+    setShowSplash(true);
+  };
+
+  useEffect(() => {
+    const handleTrigger = () => setShowSplash(true);
+    window.addEventListener('cbfds-play-splash', handleTrigger);
+    return () => window.removeEventListener('cbfds-play-splash', handleTrigger);
+  }, []);
+
   const completeSplash = () => {
     setShowSplash(false);
   };
@@ -137,6 +147,7 @@ export const AuthProvider = ({ children }) => {
         register,
         logout,
         completeSplash,
+        triggerSplash,
         refreshUserData
       }}
     >

@@ -45,12 +45,22 @@ class ShareService {
       }
     }
 
+    if (!['INTERNAL', 'EXTERNAL'].includes(type)) {
+      throw new AppError('Invalid share type.', 400, 'VALIDATION_FAILED');
+    }
+    if (downloadLimit !== undefined && (!Number.isInteger(downloadLimit) || downloadLimit < 1 || downloadLimit > 1_000_000)) {
+      throw new AppError('Download limit must be a positive integer.', 400, 'VALIDATION_FAILED');
+    }
+    if (expiresAt && Number.isNaN(new Date(expiresAt).getTime())) {
+      throw new AppError('Expiration date is invalid.', 400, 'VALIDATION_FAILED');
+    }
+
     const shareData = {
       fileId: file.fileId,
       creatorId: userId,
       type,
       expiresAt: expiresAt ? new Date(expiresAt) : null,
-      downloadLimit: downloadLimit || null,
+      downloadLimit: downloadLimit ?? null,
       recipientEmail: null,
       accessKeyHash: null,
       selfDestruct: !!selfDestruct
@@ -109,18 +119,19 @@ class ShareService {
   /**
    * Retrieves active share details by its ID (internal route).
    */
-  async getShareDetails(shareId, userId) {
+  async getShareDetails(shareId, userId, userRole = 'user') {
     const share = await this.shareRepo.findById(shareId);
     if (!share) {
       throw new AppError('Share link not found.', 404, 'SHARE_NOT_FOUND');
     }
 
-    if (share.creatorId !== userId && share.recipientEmail !== userId) {
-      // Check file ownership
-      const file = await this.fileRepo.findById(share.fileId);
-      if (!file || file.ownerId !== userId) {
-        throw new AppError('Access denied.', 403, 'ACCESS_DENIED');
-      }
+    if (userRole === 'admin' || userRole === 'superadmin' || share.creatorId === userId) {
+      return share;
+    }
+
+    const user = await this.userRepo.findById(userId);
+    if (!user || share.type !== 'INTERNAL' || share.recipientEmail !== user.email) {
+      throw new AppError('Access denied.', 403, 'ACCESS_DENIED');
     }
 
     return share;
@@ -132,6 +143,11 @@ class ShareService {
   async getPublicShareContext(shareId) {
     const share = await this.shareRepo.findById(shareId);
     if (!share || share.isRevoked) {
+      throw new AppError('Share link not found or revoked.', 404, 'SHARE_NOT_FOUND');
+    }
+    if (share.type !== 'EXTERNAL') {
+      // Internal links are invitations, not bearer links. Do not reveal their
+      // metadata or make them downloadable through public endpoints.
       throw new AppError('Share link not found or revoked.', 404, 'SHARE_NOT_FOUND');
     }
 
@@ -173,6 +189,9 @@ class ShareService {
     if (!share || share.isRevoked) {
       throw new AppError('Share link not found or revoked.', 404, 'SHARE_NOT_FOUND');
     }
+    if (share.type !== 'EXTERNAL') {
+      throw new AppError('Share link not found or revoked.', 404, 'SHARE_NOT_FOUND');
+    }
 
     if (!share.accessKeyHash) {
       return true; // No password protection active
@@ -194,18 +213,36 @@ class ShareService {
    * Atomically records a download and revokes the link if it exceeds limits.
    */
   async recordDownload(shareId) {
-    const updated = await this.shareRepo.model.findOneAndUpdate(
-      { shareId },
-      { $inc: { downloadCount: 1 } },
+    const now = new Date();
+    const activeFilter = {
+      shareId,
+      isRevoked: false,
+      $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
+      $and: [{ $or: [{ downloadLimit: null }, { $expr: { $lt: ['$downloadCount', '$downloadLimit'] } }] }]
+    };
+
+    // A self-destruct link is consumed atomically, so concurrent requests
+    // cannot each receive the protected file.
+    let updated = await this.shareRepo.model.findOneAndUpdate(
+      { ...activeFilter, selfDestruct: true },
+      { $inc: { downloadCount: 1 }, $set: { isRevoked: true } },
       { new: true }
     );
-
-    if (updated) {
-      if (updated.selfDestruct || (updated.downloadLimit !== null && updated.downloadCount >= updated.downloadLimit)) {
-        await this.shareRepo.update(shareId, { isRevoked: true });
-        logger.info(`ShareService: Share link ${shareId} self-destruct or download limit hit. Marked as revoked.`);
-      }
+    if (!updated) {
+      updated = await this.shareRepo.model.findOneAndUpdate(
+        { ...activeFilter, selfDestruct: { $ne: true } },
+        { $inc: { downloadCount: 1 } },
+        { new: true }
+      );
     }
+    if (!updated) {
+      throw new AppError('This share link is no longer available.', 410, 'SHARE_UNAVAILABLE');
+    }
+
+    if (updated.downloadLimit !== null && updated.downloadCount >= updated.downloadLimit) {
+      await this.shareRepo.update(shareId, { isRevoked: true });
+    }
+    return updated;
   }
 
   /**

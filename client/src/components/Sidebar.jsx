@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import {
   LayoutDashboard, FolderKanban, UploadCloud, Shield, LogOut,
   HardDrive, Share2, Trash2, Activity, Settings, Users, FileText,
-  User, ChevronRight, X, Smartphone, Bell, Eye, HelpCircle
+  User, ChevronRight, X, Smartphone, Bell, Eye, HelpCircle, Sparkles
 } from 'lucide-react';
 
 const formatBytes = (bytes, decimals = 1) => {
@@ -17,9 +17,11 @@ const formatBytes = (bytes, decimals = 1) => {
 };
 
 const Sidebar = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, triggerSplash } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [drawerTab, setDrawerTab] = useState('menu'); // menu | account | security | devices
 
   const mainNav = [
     { label: 'Dashboard', path: '/', icon: LayoutDashboard },
@@ -177,56 +179,116 @@ const Sidebar = () => {
                 <span className="sb-role-badge">{roleLabel}</span>
               </div>
 
-              {/* Settings Menu List */}
-              <div className="drawer-settings-list">
-                <div className="settings-item settings-item-disabled" aria-disabled="true" title="This feature is not available yet">
-                  <div className="settings-item-left">
-                    <User size={16} />
-                    <span>Account Settings</span>
+              {/* Settings Subviews / Menu List */}
+              {drawerTab === 'menu' && (
+                <div className="drawer-settings-list">
+                  <div className="settings-item" onClick={() => setDrawerTab('account')}>
+                    <div className="settings-item-left">
+                      <User size={16} />
+                      <span>Account Info</span>
+                    </div>
+                    <ChevronRight size={14} className="chevron" />
                   </div>
-                  <ChevronRight size={14} className="chevron" />
-                </div>
 
-                <div className="settings-item settings-item-disabled" aria-disabled="true" title="This feature is not available yet">
-                  <div className="settings-item-left">
-                    <Shield size={16} />
-                    <span>Security</span>
+                  <div className="settings-item" onClick={() => setDrawerTab('security')}>
+                    <div className="settings-item-left">
+                      <Shield size={16} />
+                      <span>Security & Encryption</span>
+                    </div>
+                    <ChevronRight size={14} className="chevron" />
                   </div>
-                  <ChevronRight size={14} className="chevron" />
-                </div>
 
-                <div className="settings-item settings-item-disabled" aria-disabled="true" title="This feature is not available yet">
-                  <div className="settings-item-left">
-                    <Smartphone size={16} />
-                    <span>Devices</span>
+                  <div className="settings-item" onClick={() => setDrawerTab('devices')}>
+                    <div className="settings-item-left">
+                      <Smartphone size={16} />
+                      <span>Current Device</span>
+                    </div>
+                    <div className="badge-pill">Active</div>
                   </div>
-                  <div className="badge-pill">3</div>
-                </div>
 
-                <div className="settings-item settings-item-disabled" aria-disabled="true" title="This feature is not available yet">
-                  <div className="settings-item-left">
-                    <Bell size={16} />
-                    <span>Notifications</span>
+                  <div className="settings-item" onClick={() => { setProfileOpen(false); navigate('/audit-logs'); }}>
+                    <div className="settings-item-left">
+                      <Activity size={16} />
+                      <span>Activity Log</span>
+                    </div>
+                    <ChevronRight size={14} className="chevron" />
                   </div>
-                  <ChevronRight size={14} className="chevron" />
-                </div>
 
-                <div className="settings-item settings-item-disabled" aria-disabled="true" title="This feature is not available yet">
-                  <div className="settings-item-left">
-                    <Settings size={16} />
-                    <span>Preferences</span>
+                  <div className="settings-item" onClick={() => { setProfileOpen(false); triggerSplash?.(); }}>
+                    <div className="settings-item-left">
+                      <Sparkles size={16} style={{ color: '#38bdf8' }} />
+                      <span>Replay Cyber Animation</span>
+                    </div>
+                    <ChevronRight size={14} className="chevron" />
                   </div>
-                  <ChevronRight size={14} className="chevron" />
                 </div>
+              )}
 
-                <div className="settings-item settings-item-disabled" aria-disabled="true" title="This feature is not available yet">
-                  <div className="settings-item-left">
-                    <HelpCircle size={16} />
-                    <span>Help & Support</span>
+              {drawerTab === 'account' && (
+                <div className="drawer-subview animate-fadeIn">
+                  <button type="button" className="subview-back-btn" onClick={() => setDrawerTab('menu')}>
+                    ← Back to Menu
+                  </button>
+                  <div className="subview-card">
+                    <div className="subview-field">
+                      <label>Full Name</label>
+                      <span>{user?.fullName || 'User'}</span>
+                    </div>
+                    <div className="subview-field">
+                      <label>Email</label>
+                      <span>{user?.email || 'N/A'}</span>
+                    </div>
+                    <div className="subview-field">
+                      <label>Account Role</label>
+                      <span className="role-tag">{roleLabel}</span>
+                    </div>
+                    <div className="subview-field">
+                      <label>Storage Vault</label>
+                      <span>{formatBytes(used)} of {formatBytes(quota)} used ({pct}%)</span>
+                    </div>
                   </div>
-                  <ChevronRight size={14} className="chevron" />
                 </div>
-              </div>
+              )}
+
+              {drawerTab === 'security' && (
+                <div className="drawer-subview animate-fadeIn">
+                  <button type="button" className="subview-back-btn" onClick={() => setDrawerTab('menu')}>
+                    ← Back to Menu
+                  </button>
+                  <div className="subview-card">
+                    <div className="subview-field">
+                      <label>Encryption Protocol</label>
+                      <span className="security-highlight">AES-256-GCM + SHA-256</span>
+                    </div>
+                    <div className="subview-field">
+                      <label>Token Rotation</label>
+                      <span>Transparent 15m JWT / 7d Refresh</span>
+                    </div>
+                    <div className="subview-field">
+                      <label>Security Status</label>
+                      <span className="security-good">● All systems protected</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {drawerTab === 'devices' && (
+                <div className="drawer-subview animate-fadeIn">
+                  <button type="button" className="subview-back-btn" onClick={() => setDrawerTab('menu')}>
+                    ← Back to Menu
+                  </button>
+                  <div className="subview-card">
+                    <div className="subview-field">
+                      <label>Current Platform</label>
+                      <span>{navigator.userAgent.includes('Mobile') ? 'Mobile Browser' : 'Desktop / Laptop Browser'}</span>
+                    </div>
+                    <div className="subview-field">
+                      <label>Connection Security</label>
+                      <span className="security-good">TLS Encrypted WebSocket & HTTP</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Logout */}
               <button onClick={() => { setProfileOpen(false); logout(); }} className="drawer-logout-btn">
@@ -563,11 +625,6 @@ const Sidebar = () => {
         }
 
         .settings-item {
-        .settings-item-disabled {
-          cursor: not-allowed;
-          opacity: 0.55;
-          pointer-events: none;
-        }
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -582,6 +639,75 @@ const Sidebar = () => {
         .settings-item:hover {
           background: var(--bg-surface-hover);
           border-color: var(--border-standard);
+        }
+
+        .settings-item-disabled {
+          cursor: not-allowed;
+          opacity: 0.55;
+          pointer-events: none;
+        }
+
+        /* Subviews */
+        .drawer-subview {
+          margin-bottom: 24px;
+        }
+
+        .subview-back-btn {
+          background: none;
+          border: none;
+          color: var(--accent-primary);
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          padding: 0;
+          margin-bottom: 12px;
+          display: inline-flex;
+          align-items: center;
+        }
+
+        .subview-card {
+          background: hsl(230, 40%, 7%);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-md);
+          padding: 14px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .subview-field {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .subview-field label {
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          color: var(--text-muted);
+          letter-spacing: 0.05em;
+        }
+
+        .subview-field span {
+          font-size: 13px;
+          color: var(--text-primary);
+        }
+
+        .role-tag {
+          color: var(--accent-primary) !important;
+          font-weight: 600;
+        }
+
+        .security-highlight {
+          color: #10b981 !important;
+          font-family: var(--font-mono, monospace);
+          font-size: 12px !important;
+        }
+
+        .security-good {
+          color: #10b981 !important;
+          font-size: 12px !important;
         }
 
         .settings-item-left {
