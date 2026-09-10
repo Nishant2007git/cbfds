@@ -81,9 +81,13 @@ const createApp = async () => {
 
   // Global Middleware Stack
   app.use(helmet());
+  const rawOrigins = [
+    ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : []),
+    ...(env.FRONTEND_URL ? env.FRONTEND_URL.split(',') : []),
+    'https://cbfds-client.onrender.com'
+  ];
   const allowedOrigins = new Set(
-    (process.env.CORS_ORIGINS || env.FRONTEND_URL)
-      .split(',')
+    rawOrigins
       .map((origin) => origin.trim().replace(/\/$/, ''))
       .filter(Boolean)
   );
@@ -95,7 +99,7 @@ const createApp = async () => {
       const cleanOrigin = origin.trim().replace(/\/$/, '');
       return callback(null, allowedOrigins.has(cleanOrigin));
     },
-    credentials: false
+    credentials: true
   }));
 
   // Route resumable upload requests to Tus server directly (handles raw stream)
