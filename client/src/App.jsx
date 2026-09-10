@@ -35,7 +35,7 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
 };
 
 function AppContent() {
-  const { showSplash, completeSplash } = useAuth();
+  const { isAuthenticated, showSplash, completeSplash } = useAuth();
 
   return (
     <>
@@ -50,6 +50,16 @@ function AppContent() {
       <Routes>
         {/* Public Share Route */}
         <Route path="/share/:token" element={<PublicDownload />} />
+
+        {/* Public Auth Routes */}
+        <Route
+          path="/login"
+          element={isAuthenticated ? <Navigate to="/" replace /> : <Login initialMode="login" />}
+        />
+        <Route
+          path="/register"
+          element={isAuthenticated ? <Navigate to="/" replace /> : <Login initialMode="register" />}
+        />
 
         {/* Authenticated Application Routes */}
         <Route

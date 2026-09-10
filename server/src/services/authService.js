@@ -48,9 +48,14 @@ class AuthService {
       throw new ConflictError('Email is already registered.', 'AUTH_EMAIL_EXISTS');
     }
 
-    // Password strength check (requires uppercase, lowercase, digit, and special character)
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~])[A-Za-z\d!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]{8,}$/;
-    if (!passwordRegex.test(password)) {
+    // Password strength check (requires min 8 chars, uppercase, lowercase, digit, and special character)
+    const hasMinLength = password && password.length >= 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasDigit = /\d/.test(password);
+    const hasSpecial = /[^A-Za-z0-9]/.test(password);
+
+    if (!hasMinLength || !hasUpperCase || !hasLowerCase || !hasDigit || !hasSpecial) {
       throw new ValidationError(
         'Password must be at least 8 characters long and contain uppercase, lowercase, number, and special character.'
       );
@@ -58,8 +63,8 @@ class AuthService {
 
     // Default quota assigned at database schema layer
     const newUser = await this.userRepo.create({
-      fullName,
-      email,
+      fullName: fullName.trim(),
+      email: email.trim().toLowerCase(),
       passwordHash: password, // will be hashed automatically by user pre-save hook
     });
 
@@ -70,10 +75,31 @@ class AuthService {
       logger.error(`Failed to send welcome email to: ${newUser.email}`, err);
     });
 
-    return {
+    // Generate tokens for seamless auto-login
+    const accessToken = this._generateAccessToken(newUser.userId, newUser.role || 'user');
+    const rawRefreshToken = this._generateRefreshToken();
+    const tokenHash = this._hashToken(rawRefreshToken);
+
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    await this.tokenRepo.create({
       userId: newUser.userId,
-      email: newUser.email,
-      fullName: newUser.fullName,
+      tokenHash,
+      deviceInfo: {},
+      ipAddress: '',
+      expiresAt,
+    });
+
+    return {
+      accessToken,
+      refreshToken: rawRefreshToken,
+      user: {
+        userId: newUser.userId,
+        email: newUser.email,
+        fullName: newUser.fullName,
+        role: newUser.role || 'user',
+        storageQuota: newUser.storageQuota,
+        storageUsed: newUser.storageUsed || 0,
+      },
     };
   }
 

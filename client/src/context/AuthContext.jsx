@@ -87,7 +87,17 @@ export const AuthProvider = ({ children }) => {
       );
     }
 
-    // Automatically authenticate the newly registered user
+    // If backend returns session tokens directly, authenticate immediately without extra call
+    if (res.data?.data?.accessToken && res.data?.data?.refreshToken) {
+      const { accessToken, refreshToken, user: userData } = res.data.data;
+      setRefreshToken(refreshToken);
+      setAccessToken(accessToken);
+      setUser(userData);
+      setShowSplash(true);
+      return userData;
+    }
+
+    // Fallback: Authenticate via login endpoint
     return await login(email, password);
   };
 

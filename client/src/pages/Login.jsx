@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { HardDrive, Lock, Mail, User as UserIcon, ArrowRight, Eye, EyeOff, Shield, Zap } from 'lucide-react';
+import { HardDrive, Lock, Mail, User as UserIcon, ArrowRight, Eye, EyeOff, Shield, Zap, Check, AlertCircle } from 'lucide-react';
 
-const Login = () => {
+const Login = ({ initialMode = 'login' }) => {
   const { login, register } = useAuth();
-  const [isRegister, setIsRegister] = useState(false);
+  const [isRegister, setIsRegister] = useState(initialMode === 'register');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,8 +16,23 @@ const Login = () => {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setIsRegister(initialMode === 'register');
+  }, [initialMode]);
+
+  useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Live password validation checks
+  const passwordChecks = {
+    length: password.length >= 8,
+    upper: /[A-Z]/.test(password),
+    lower: /[a-z]/.test(password),
+    digit: /\d/.test(password),
+    special: /[^A-Za-z0-9]/.test(password),
+  };
+  const isPasswordValid = Object.values(passwordChecks).every(Boolean);
+  const isPasswordMatch = confirmPassword.length > 0 && password === confirmPassword;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,26 +42,49 @@ const Login = () => {
     try {
       if (isRegister) {
         if (!fullName.trim()) {
-          throw new Error('Full Name is required.');
+          throw new Error('Please enter your full name.');
+        }
+        if (!email.trim()) {
+          throw new Error('Please enter your email address.');
+        }
+        if (!isPasswordValid) {
+          throw new Error('Password must be at least 8 characters long and contain uppercase, lowercase, number, and special character.');
         }
         if (password !== confirmPassword) {
           throw new Error('Passwords do not match.');
         }
-        await register(fullName, email, password, confirmPassword);
+        await register(fullName.trim(), email.trim(), password, confirmPassword);
       } else {
-        await login(email, password);
+        if (!email.trim()) {
+          throw new Error('Please enter your email address.');
+        }
+        if (!password) {
+          throw new Error('Please enter your password.');
+        }
+        await login(email.trim(), password);
       }
     } catch (err) {
-      let msg = 'Authentication failed.';
-      if (err.response?.data?.error?.details) {
-        const details = err.response.data.error.details;
-        msg = typeof details === 'object' ? Object.values(details).join(' ') : String(details);
-      } else if (err.response?.data?.error?.message) {
-        msg = err.response.data.error.message;
-      } else if (err.response?.data?.message) {
-        msg = err.response.data.message;
-      } else if (err.message) {
+      let msg = '';
+      const errData = err.response?.data;
+      
+      // If error details has specific field errors
+      if (errData?.error?.details && typeof errData.error.details === 'object') {
+        const detailValues = Object.values(errData.error.details).filter(Boolean);
+        if (detailValues.length > 0) {
+          msg = detailValues.join(' ');
+        }
+      }
+      
+      if (!msg && errData?.error?.message) {
+        msg = errData.error.message;
+      } else if (!msg && errData?.message) {
+        msg = errData.message;
+      } else if (!msg && err.message) {
         msg = err.message;
+      }
+      
+      if (!msg) {
+        msg = isRegister ? 'Registration failed. Please verify your details.' : 'Sign in failed. Please check your credentials.';
       }
       setError(msg);
     } finally {
@@ -114,6 +152,39 @@ const Login = () => {
           <div className={`auth-tab-indicator ${isRegister ? 'right' : 'left'}`} />
         </div>
 
+        {/* Quick Demo Access (Only in Sign In mode) */}
+        {!isRegister && (
+          <div className="demo-accounts-bar animate-fadeIn">
+            <span className="demo-hint-label">Quick Demo Login:</span>
+            <div className="demo-btn-group">
+              <button
+                type="button"
+                className="demo-pill-btn"
+                onClick={() => {
+                  setEmail('admin@library.com');
+                  setPassword('Password123!');
+                  setError('');
+                }}
+              >
+                <Shield size={12} />
+                <span>Admin</span>
+              </button>
+              <button
+                type="button"
+                className="demo-pill-btn"
+                onClick={() => {
+                  setEmail('user@example.com');
+                  setPassword('Password123!');
+                  setError('');
+                }}
+              >
+                <UserIcon size={12} />
+                <span>User</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Error alert */}
         {error && (
           <div className="auth-error animate-scaleIn">
@@ -177,8 +248,34 @@ const Login = () => {
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
+
+            {/* Interactive Password Requirements Checklist in Register Mode */}
             {isRegister && (
-              <span className="field-hint">Must include uppercase, lowercase, number & symbol.</span>
+              <div className="password-checklist">
+                <div className="checklist-title">Password must contain:</div>
+                <div className="checklist-grid">
+                  <div className={`checklist-item ${passwordChecks.length ? 'met' : ''}`}>
+                    <Check size={11} className="check-icon" />
+                    <span>8+ characters</span>
+                  </div>
+                  <div className={`checklist-item ${passwordChecks.upper ? 'met' : ''}`}>
+                    <Check size={11} className="check-icon" />
+                    <span>Uppercase (A-Z)</span>
+                  </div>
+                  <div className={`checklist-item ${passwordChecks.lower ? 'met' : ''}`}>
+                    <Check size={11} className="check-icon" />
+                    <span>Lowercase (a-z)</span>
+                  </div>
+                  <div className={`checklist-item ${passwordChecks.digit ? 'met' : ''}`}>
+                    <Check size={11} className="check-icon" />
+                    <span>Number (0-9)</span>
+                  </div>
+                  <div className={`checklist-item ${passwordChecks.special ? 'met' : ''}`}>
+                    <Check size={11} className="check-icon" />
+                    <span>Special character (!@#$)</span>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
 
@@ -204,6 +301,22 @@ const Login = () => {
                   {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
+
+              {confirmPassword.length > 0 && (
+                <div className={`match-indicator ${isPasswordMatch ? 'matched' : 'mismatched'}`}>
+                  {isPasswordMatch ? (
+                    <>
+                      <Check size={13} />
+                      <span>Passwords match</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle size={13} />
+                      <span>Passwords do not match</span>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -461,6 +574,54 @@ const Login = () => {
           font-family: var(--font-mono);
         }
 
+        /* === Demo Accounts Bar === */
+        .demo-accounts-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: var(--accent-primary-subtle);
+          border: 1px solid hsla(217, 91%, 60%, 0.18);
+          border-radius: var(--radius-md);
+          padding: 8px 12px;
+          margin-bottom: 16px;
+          gap: 10px;
+        }
+
+        .demo-hint-label {
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+
+        .demo-btn-group {
+          display: flex;
+          gap: 6px;
+        }
+
+        .demo-pill-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 4px 10px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-full, 9999px);
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .demo-pill-btn:hover {
+          background: var(--accent-primary);
+          color: #fff;
+          border-color: var(--accent-primary);
+          transform: translateY(-1px);
+        }
+
         /* === Error === */
         .auth-error {
           display: flex;
@@ -566,6 +727,74 @@ const Login = () => {
           font-size: 11px;
           color: var(--text-muted);
           margin-top: 6px;
+        }
+
+        /* === Password Requirements Checklist === */
+        .password-checklist {
+          margin-top: 8px;
+          padding: 8px 10px;
+          background: var(--bg-inset);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-sm);
+        }
+
+        .checklist-title {
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--text-muted);
+          margin-bottom: 6px;
+        }
+
+        .checklist-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 4px 8px;
+        }
+
+        .checklist-item {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 10.5px;
+          color: var(--text-disabled);
+          transition: all 0.2s ease;
+        }
+
+        .checklist-item .check-icon {
+          opacity: 0.3;
+          stroke-width: 2.5;
+          flex-shrink: 0;
+        }
+
+        .checklist-item.met {
+          color: hsl(160, 84%, 45%);
+          font-weight: 500;
+        }
+
+        .checklist-item.met .check-icon {
+          opacity: 1;
+          color: hsl(160, 84%, 45%);
+        }
+
+        /* === Match Indicator === */
+        .match-indicator {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 11px;
+          margin-top: 6px;
+          padding: 3px 8px;
+          border-radius: var(--radius-sm);
+        }
+
+        .match-indicator.matched {
+          color: hsl(160, 84%, 45%);
+          background: hsla(160, 84%, 39%, 0.1);
+        }
+
+        .match-indicator.mismatched {
+          color: hsl(0, 84%, 65%);
+          background: hsla(0, 84%, 60%, 0.1);
         }
 
         /* === Submit === */

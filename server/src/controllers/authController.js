@@ -7,9 +7,24 @@ class AuthController {
     try {
       const { fullName, email, password, confirmPassword } = req.body;
       const result = await this.authService.register(fullName, email, password, confirmPassword);
+
+      try {
+        const auditLogServiceModule = await import('../services/auditLogService.js');
+        const userAgent = req.headers['user-agent'] || 'Unknown';
+        const ipAddress = req.ip || req.connection?.remoteAddress || '';
+        auditLogServiceModule.default.log(
+          result.user.userId,
+          'REGISTER',
+          null,
+          { email: result.user.email },
+          ipAddress,
+          userAgent
+        );
+      } catch (_) {}
+
       return res.status(201).json({
         success: true,
-        message: 'Registration successful. Please log in.',
+        message: 'Registration successful.',
         data: result
       });
     } catch (err) {

@@ -1,3 +1,8 @@
+import dns from 'dns';
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (_) {}
+
 import mongoose from 'mongoose';
 import env from './env.js';
 import logger from '../utils/logger.js';

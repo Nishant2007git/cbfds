@@ -40,12 +40,13 @@ const createApp = async () => {
   await connectDatabase();
   connectRedis();
 
-  // Seed default admin account if missing
+  // Seed default admin and user accounts if missing
   try {
     const User = (await import('./models/User.js')).default;
+    const { v4: uuidv4 } = await import('uuid');
+
     const adminExists = await User.findOne({ email: 'admin@library.com' });
     if (!adminExists) {
-      const { v4: uuidv4 } = await import('uuid');
       await User.create({
         userId: uuidv4(),
         fullName: 'System Admin',
@@ -57,8 +58,22 @@ const createApp = async () => {
       });
       logger.info('Seeded System Admin account: admin@library.com');
     }
+
+    const userExists = await User.findOne({ email: 'user@example.com' });
+    if (!userExists) {
+      await User.create({
+        userId: uuidv4(),
+        fullName: 'Standard User',
+        email: 'user@example.com',
+        passwordHash: 'Password123!',
+        role: 'user',
+        storageQuota: 10737418240, // 10 GB
+        storageUsed: 0
+      });
+      logger.info('Seeded Standard User account: user@example.com');
+    }
   } catch (seedErr) {
-    logger.warn(`Admin seed check warning: ${seedErr.message}`);
+    logger.warn(`Default accounts seed check warning: ${seedErr.message}`);
   }
 
   // Global Middleware Stack
