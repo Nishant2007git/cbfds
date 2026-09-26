@@ -3,6 +3,8 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { HardDrive, Lock, Mail, User as UserIcon, ArrowRight, Eye, EyeOff, Shield, Zap, Check, AlertCircle } from "lucide-react";
 import { soundSpells } from "../utils/soundSpells.js";
 
+const ThreeBackground = React.lazy(() => import("../components/ThreeBackground.jsx"));
+
 /* ─── 3D Tilt card hook ────────────────────────────────────────────── */
 function useTilt(strength = 12) {
   const ref = useRef(null);
@@ -250,6 +252,11 @@ const Login = ({ initialMode = "login" }) => {
       overflow: "hidden",
       padding: "24px 16px",
     }}>
+      {/* ── 3D WebGL background ── */}
+      <React.Suspense fallback={null}>
+        <ThreeBackground />
+      </React.Suspense>
+
       <FloatingShapes />
 
       {/* ── 2-column layout ── */}

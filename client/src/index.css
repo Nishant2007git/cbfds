@@ -91,6 +91,8 @@
   --grad-teal:   linear-gradient(135deg, hsl(172,70%,45%), hsl(160,84%,34%));
   --grad-purple: linear-gradient(135deg, hsl(262,85%,58%), hsl(280,75%,45%));
   --grad-orange: linear-gradient(135deg, hsl(24,95%,55%), hsl(350,85%,55%));
+  --grad-rose:   linear-gradient(135deg, hsl(350,85%,58%), hsl(330,80%,44%));
+  --grad-cyan:   linear-gradient(135deg, hsl(187,85%,50%), hsl(217,85%,50%));
 
   /* Functional */
   --color-success:        hsl(152, 69%, 41%);

@@ -1,53 +1,107 @@
-import React, { useEffect, useState } from 'react';
-import Layout from '../components/Layout.jsx';
-import api from '../utils/api.js';
-import { 
-  Activity, LogIn, UploadCloud, DownloadCloud, Trash2, RotateCcw, 
-  Share2, ShieldAlert, Calendar, EyeOff, Globe, Smartphone, Laptop,
-  Filter, Shield
-} from 'lucide-react';
-
-const formatBytes = (bytes) => {
-  if (!bytes || bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-};
+import React, { useEffect, useState } from "react";
+import Layout from "../components/Layout.jsx";
+import api from "../utils/api.js";
+import {
+  Activity, LogIn, UploadCloud, DownloadCloud, Trash2, RotateCcw,
+  Share2, ShieldAlert, EyeOff, Globe, Smartphone, Laptop,
+  Filter, Shield, Search, X, Calendar, Clock, ChevronDown
+} from "lucide-react";
 
 const actionConfig = {
-  LOGIN:            { icon: LogIn,          color: 'var(--accent-primary)',   bg: 'var(--accent-primary-subtle)',   label: 'Login' },
-  UPLOAD_FILE:      { icon: UploadCloud,    color: 'var(--accent-emerald)',   bg: 'var(--accent-emerald-subtle)',   label: 'Upload' },
-  DOWNLOAD_FILE:    { icon: DownloadCloud,  color: 'var(--accent-cyan)',      bg: 'var(--accent-cyan-subtle)',      label: 'Download' },
-  DELETE_FILE:      { icon: Trash2,         color: 'var(--accent-amber)',     bg: 'var(--accent-amber-subtle)',     label: 'Delete' },
-  RESTORE_FILE:     { icon: RotateCcw,      color: 'var(--accent-emerald)',   bg: 'var(--accent-emerald-subtle)',   label: 'Restore' },
-  PERMANENT_DELETE: { icon: Trash2,         color: 'var(--color-danger)',     bg: 'var(--color-danger-subtle)',     label: 'Purge' },
-  CREATE_SHARE:     { icon: Share2,         color: 'var(--accent-secondary)', bg: 'var(--accent-secondary-subtle)', label: 'Share' },
-  REVOKE_SHARE:     { icon: EyeOff,         color: 'var(--accent-rose)',      bg: 'var(--accent-rose-subtle)',      label: 'Revoke' }
+  LOGIN:            { icon: LogIn,         color: "var(--accent-primary)",   label: "Login",    gradient: "var(--grad-blue)" },
+  UPLOAD_FILE:      { icon: UploadCloud,   color: "var(--accent-emerald)",   label: "Upload",   gradient: "var(--grad-teal)" },
+  DOWNLOAD_FILE:    { icon: DownloadCloud, color: "var(--accent-cyan)",      label: "Download", gradient: "var(--grad-blue)" },
+  DELETE_FILE:      { icon: Trash2,        color: "var(--accent-amber)",     label: "Delete",   gradient: "var(--grad-orange)" },
+  RESTORE_FILE:     { icon: RotateCcw,     color: "var(--accent-emerald)",   label: "Restore",  gradient: "var(--grad-teal)" },
+  PERMANENT_DELETE: { icon: Trash2,        color: "var(--color-danger)",     label: "Purge",    gradient: "linear-gradient(135deg,#ef4444,#b91c1c)" },
+  CREATE_SHARE:     { icon: Share2,        color: "var(--accent-secondary)", label: "Share",    gradient: "var(--grad-purple)" },
+  REVOKE_SHARE:     { icon: EyeOff,        color: "var(--accent-rose)",      label: "Revoke",   gradient: "var(--grad-rose)" },
 };
 
-const getDeviceIcon = (uaString = '') => {
-  const ua = uaString.toLowerCase();
-  if (ua.includes('mobi') || ua.includes('android') || ua.includes('iphone')) return Smartphone;
+const getDeviceIcon = (ua = "") => {
+  const s = ua.toLowerCase();
+  if (s.includes("mobi") || s.includes("android") || s.includes("iphone")) return Smartphone;
   return Laptop;
 };
 
-const parseUserAgent = (uaString = '') => {
-  const ua = uaString.toLowerCase();
-  if (ua.includes('chrome') && !ua.includes('edge')) return 'Chrome';
-  if (ua.includes('firefox')) return 'Firefox';
-  if (ua.includes('safari') && !ua.includes('chrome')) return 'Safari';
-  if (ua.includes('edge')) return 'Edge';
-  return 'Desktop';
+const parseUA = (ua = "") => {
+  const s = ua.toLowerCase();
+  if (s.includes("chrome") && !s.includes("edge")) return "Chrome";
+  if (s.includes("firefox")) return "Firefox";
+  if (s.includes("safari") && !s.includes("chrome")) return "Safari";
+  if (s.includes("edge")) return "Edge";
+  return "Browser";
 };
 
-const getRelativeTime = (date) => {
-  const diff = (Date.now() - new Date(date).getTime()) / 1000;
-  if (diff < 60) return 'Just now';
+const relTime = (d) => {
+  const diff = (Date.now() - new Date(d)) / 1000;
+  if (diff < 60) return "Just now";
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-  return new Date(date).toLocaleDateString();
+  return new Date(d).toLocaleDateString();
+};
+
+const LogRow = ({ log, idx }) => {
+  const cfg = actionConfig[log.action] || { icon: ShieldAlert, color: "var(--text-muted)", label: log.action, gradient: "var(--glass-border)" };
+  const DevIcon = getDeviceIcon(log.userAgent);
+  const browser = parseUA(log.userAgent);
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 14, padding: "14px 20px",
+      background: "var(--glass-bg)", backdropFilter: "var(--glass-blur)",
+      border: "1px solid var(--glass-border)", borderRadius: "var(--radius-xl)",
+      transition: "all 0.25s var(--ease-out)",
+      animation: `fadeInUp 0.4s var(--ease-out) ${0.025 * idx}s both`,
+      boxShadow: "var(--shadow-card-3d)",
+    }}
+    onMouseEnter={e => { e.currentTarget.style.transform = "translateX(6px)"; e.currentTarget.style.borderColor = cfg.color + "55"; }}
+    onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.borderColor = "var(--glass-border)"; }}
+    >
+      {/* Action icon */}
+      <div style={{ width: 38, height: 38, borderRadius: "var(--radius-md)", background: cfg.gradient, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 4px 12px ${cfg.color}44` }}>
+        <cfg.icon size={16} color="#fff" />
+      </div>
+
+      {/* Action label */}
+      <div style={{ flexShrink: 0, width: 80 }}>
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: cfg.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>{cfg.label}</div>
+      </div>
+
+      {/* Details */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {log.user?.fullName || log.user?.email || "Unknown User"}
+        </div>
+        {log.resourceName && (
+          <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {log.resourceName}
+          </div>
+        )}
+      </div>
+
+      {/* Device / Browser */}
+      <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0, color: "var(--text-muted)" }}>
+        <DevIcon size={13} />
+        <span style={{ fontSize: 11.5 }}>{browser}</span>
+      </div>
+
+      {/* IP */}
+      {log.ipAddress && (
+        <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+          <Globe size={11} color="var(--text-disabled)" />
+          <span style={{ fontSize: 11, color: "var(--text-disabled)", fontFamily: "var(--font-mono)" }}>{log.ipAddress}</span>
+        </div>
+      )}
+
+      {/* Time */}
+      <div style={{ flexShrink: 0, textAlign: "right" }}>
+        <div style={{ fontSize: 11.5, color: "var(--text-muted)", fontWeight: 500 }}>{relTime(log.createdAt)}</div>
+        <div style={{ fontSize: 10, color: "var(--text-disabled)", marginTop: 2 }}>{log.createdAt ? new Date(log.createdAt).toLocaleTimeString() : ""}</div>
+      </div>
+    </div>
+  );
 };
 
 const AuditLogs = () => {
@@ -55,384 +109,157 @@ const AuditLogs = () => {
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [selectedUser, setSelectedUser] = useState('');
-  const [selectedAction, setSelectedAction] = useState('');
-
-  const checkUserRoleAndFetchFilters = async () => {
-    try {
-      const authRes = await api.get('/auth/me');
-      const role = authRes.data.data?.role || authRes.data.data?.user?.role;
-      if (role === 'admin' || role === 'superadmin') {
-        setIsAdmin(true);
-        const usersRes = await api.get('/admin/users');
-        setUsers(usersRes.data.data?.items || usersRes.data.data || []);
-      }
-    } catch (err) {
-      console.error('Failed to resolve current role', err);
-    }
-  };
+  const [selectedUser, setSelectedUser] = useState("");
+  const [selectedAction, setSelectedAction] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const LIMIT = 40;
 
   const fetchLogs = async () => {
     try {
       setLoading(true);
-      let url = '/audit-logs';
-      if (isAdmin) {
-        url = '/audit-logs/admin';
-        const params = [];
-        if (selectedUser) params.push(`userId=${selectedUser}`);
-        if (selectedAction) params.push(`action=${selectedAction}`);
-        if (params.length > 0) url += `?${params.join('&')}`;
-      }
-      const res = await api.get(url);
-      setLogs(res.data.data || []);
+      const params = new URLSearchParams({ limit: LIMIT, page });
+      if (selectedUser) params.set("userId", selectedUser);
+      if (selectedAction) params.set("action", selectedAction);
+      const res = await api.get(`/audit?${params}`);
+      const data = res.data.data;
+      setLogs(data?.items || data || []);
+      setHasMore(!!data?.hasMore);
+      setIsAdmin(true);
     } catch (err) {
-      console.error('Failed to load audit logs', err);
-    } finally {
-      setLoading(false);
-    }
+      if (err.response?.status === 403) {
+        const res = await api.get("/audit");
+        setLogs(res.data.data?.items || res.data.data || []);
+        setIsAdmin(false);
+      }
+    } finally { setLoading(false); }
   };
 
-  useEffect(() => { checkUserRoleAndFetchFilters(); }, []);
-  useEffect(() => { fetchLogs(); }, [isAdmin, selectedUser, selectedAction]);
+  useEffect(() => { fetchLogs(); }, [selectedUser, selectedAction, page]);
 
-  const uniqueActions = Object.keys(actionConfig);
+  useEffect(() => {
+    if (!isAdmin) return;
+    api.get("/admin/users").then(r => setUsers(r.data.data?.items || [])).catch(() => {});
+  }, [isAdmin]);
+
+  const displayLogs = logs.filter(log =>
+    searchQuery === "" ||
+    (log.user?.fullName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (log.user?.email || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (log.resourceName || "").toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const actionKeys = Object.keys(actionConfig);
+  const totalByAction = actionKeys.reduce((acc, k) => {
+    acc[k] = logs.filter(l => l.action === k).length;
+    return acc;
+  }, {});
 
   return (
-    <Layout title="Security Logs">
-      <div className="audit-page">
-        {/* Filter Bar */}
-        <div className="glass-card filter-bar animate-fadeInUp">
-          <div className="filter-bar-left">
-            <div className="filter-icon-wrap">
-              <Filter size={16} />
-            </div>
-            {isAdmin && (
-              <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)} className="input-control filter-select">
-                <option value="">All Users</option>
-                {users.map(u => <option key={u.userId} value={u.userId}>{u.fullName}</option>)}
-              </select>
-            )}
-            <select value={selectedAction} onChange={(e) => setSelectedAction(e.target.value)} className="input-control filter-select">
-              <option value="">All Actions</option>
-              {uniqueActions.map(act => <option key={act} value={act}>{actionConfig[act].label}</option>)}
-            </select>
+    <Layout title="Audit Logs">
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        {/* Header */}
+        <div style={{ animation: "fadeInUp 0.4s var(--ease-out) both" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent-primary)", animation: "pulse-glow 2s infinite" }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Security Center</span>
           </div>
-          <div className="filter-count">
-            <Shield size={14} />
-            <span>{logs.length} events</span>
-          </div>
+          <h1 style={{ fontSize: "clamp(20px,3vw,28px)", fontWeight: 800, letterSpacing: "-0.02em" }}>
+            Audit <span className="text-gradient">Logs</span>
+          </h1>
+          <p style={{ fontSize: 13.5, color: "var(--text-muted)", marginTop: 4 }}>{logs.length} event{logs.length !== 1 ? "s" : ""} recorded · Immutable security trail</p>
         </div>
 
-        {/* Timeline */}
-        <div className="glass-card timeline-container animate-fadeInUp stagger-2">
-          {loading ? (
-            <div className="timeline-loading">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="skeleton" style={{ height: 80, borderRadius: 'var(--radius-md)', marginBottom: 12 }} />
-              ))}
-            </div>
-          ) : logs.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon-wrap">
-                <Activity size={32} />
-              </div>
-              <h4>No security events found</h4>
-              <p>Actions like logins, uploads, and downloads will appear here.</p>
-            </div>
-          ) : (
-            <div className="timeline">
-              {logs.map((log, idx) => {
-                const cfg = actionConfig[log.action] || { icon: Activity, color: 'var(--text-muted)', bg: 'var(--bg-surface)', label: log.action };
-                const Icon = cfg.icon;
-                const DeviceIcon = getDeviceIcon(log.userAgent);
-                const fileObj = log.file || {};
-
-                return (
-                  <div key={log.logId || log._id} className={`tl-item animate-fadeInUp stagger-${Math.min(idx + 1, 8)}`}>
-                    {/* Node */}
-                    <div className="tl-track">
-                      <div className="tl-node" style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.color }}>
-                        <Icon size={16} strokeWidth={2} />
-                      </div>
-                      {idx < logs.length - 1 && <div className="tl-line" />}
-                    </div>
-
-                    {/* Content */}
-                    <div className="tl-card" style={{ borderLeftColor: cfg.color }}>
-                      <div className="tl-card-top">
-                        <span className="tl-action-badge" style={{ background: cfg.bg, color: cfg.color }}>
-                          {cfg.label}
-                        </span>
-                        <span className="tl-time">{getRelativeTime(log.createdAt)}</span>
-                      </div>
-
-                      <div className="tl-desc">
-                        {log.action === 'LOGIN' && 'Successful authentication session started.'}
-                        {log.action === 'UPLOAD_FILE' && (
-                          <>Uploaded <strong>{fileObj.originalName || log.details?.originalName}</strong>
-                            {log.details?.fileSize && ` (${formatBytes(log.details.fileSize)})`}
-                          </>
-                        )}
-                        {log.action === 'DOWNLOAD_FILE' && (
-                          <>Downloaded <strong>{fileObj.originalName || log.details?.originalName}</strong>
-                            {log.details?.sharedLinkDownload && ' via shared link'}
-                          </>
-                        )}
-                        {log.action === 'DELETE_FILE' && <>Moved <strong>{fileObj.originalName || log.details?.originalName}</strong> to trash</>}
-                        {log.action === 'RESTORE_FILE' && <>Restored <strong>{fileObj.originalName || log.details?.originalName}</strong> from trash</>}
-                        {log.action === 'PERMANENT_DELETE' && <>Permanently purged <strong>{log.details?.originalName}</strong></>}
-                        {log.action === 'CREATE_SHARE' && <>Created sharing link{log.details?.recipientEmail && ` for ${log.details.recipientEmail}`}</>}
-                        {log.action === 'REVOKE_SHARE' && <>Revoked share link <code>{log.details?.shareId?.slice(0, 8)}...</code></>}
-                      </div>
-
-                      <div className="tl-meta-row">
-                        {isAdmin && log.user && (
-                          <span className="tl-chip tl-chip-user">{log.user.fullName}</span>
-                        )}
-                        <span className="tl-chip">
-                          <Globe size={11} /> {log.ipAddress}
-                        </span>
-                        <span className="tl-chip">
-                          <DeviceIcon size={11} /> {parseUserAgent(log.userAgent)}
-                        </span>
-                        <span className="tl-chip">
-                          <Calendar size={11} /> {new Date(log.createdAt).toLocaleTimeString()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+        {/* Action summary chips */}
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", animation: "fadeInUp 0.4s var(--ease-out) 0.05s both" }}>
+          {actionKeys.slice(0, 5).map(k => {
+            const cfg = actionConfig[k];
+            const count = totalByAction[k];
+            if (!count) return null;
+            return (
+              <button key={k} onClick={() => setSelectedAction(selectedAction === k ? "" : k)} style={{
+                display: "flex", alignItems: "center", gap: 7, padding: "7px 14px",
+                background: selectedAction === k ? cfg.gradient : "var(--glass-bg)",
+                backdropFilter: "blur(12px)",
+                border: `1px solid ${selectedAction === k ? cfg.color + "66" : "var(--glass-border)"}`,
+                borderRadius: 99, cursor: "pointer",
+                color: selectedAction === k ? "#fff" : cfg.color,
+                fontSize: 12, fontWeight: 600, transition: "all 0.2s ease",
+              }}>
+                <cfg.icon size={11} />
+                {cfg.label}
+                <span style={{ background: "hsla(0,0%,100%,0.15)", borderRadius: 99, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>{count}</span>
+              </button>
+            );
+          })}
+          {selectedAction && (
+            <button onClick={() => setSelectedAction("")} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", background: "var(--color-danger-subtle)", border: "1px solid hsla(0,84%,60%,0.2)", borderRadius: 99, cursor: "pointer", color: "var(--color-danger)", fontSize: 12, fontWeight: 600 }}>
+              <X size={11} /> Clear filter
+            </button>
           )}
         </div>
+
+        {/* Search + Filters */}
+        <div style={{
+          display: "grid", gridTemplateColumns: isAdmin ? "1fr auto auto" : "1fr", gap: 12,
+          background: "var(--glass-bg)", backdropFilter: "var(--glass-blur)",
+          border: "1px solid var(--glass-border)", borderRadius: "var(--radius-xl)",
+          padding: "14px 20px", boxShadow: "var(--shadow-card-3d)",
+          animation: "fadeInUp 0.4s var(--ease-out) 0.1s both",
+        }}>
+          <div style={{ position: "relative" }}>
+            <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} />
+            <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search logs..."
+              style={{ width: "100%", background: "hsla(0,0%,0%,0.2)", border: "1px solid var(--glass-border)", borderRadius: "var(--radius-md)", padding: "9px 12px 9px 36px", color: "var(--text-primary)", fontSize: 13, fontFamily: "var(--font-body)", outline: "none" }}
+            />
+          </div>
+          {isAdmin && (
+            <select value={selectedUser} onChange={e => { setSelectedUser(e.target.value); setPage(1); }} style={{
+              background: "hsla(0,0%,0%,0.2)", border: "1px solid var(--glass-border)", borderRadius: "var(--radius-md)",
+              padding: "9px 14px", color: "var(--text-primary)", fontSize: 12.5, fontFamily: "var(--font-body)", outline: "none", cursor: "pointer",
+            }}>
+              <option value="">All Users</option>
+              {users.map(u => <option key={u._id} value={u._id}>{u.fullName || u.email}</option>)}
+            </select>
+          )}
+          {isAdmin && (
+            <select value={selectedAction} onChange={e => { setSelectedAction(e.target.value); setPage(1); }} style={{
+              background: "hsla(0,0%,0%,0.2)", border: "1px solid var(--glass-border)", borderRadius: "var(--radius-md)",
+              padding: "9px 14px", color: "var(--text-primary)", fontSize: 12.5, fontFamily: "var(--font-body)", outline: "none", cursor: "pointer",
+            }}>
+              <option value="">All Actions</option>
+              {actionKeys.map(k => <option key={k} value={k}>{actionConfig[k].label}</option>)}
+            </select>
+          )}
+        </div>
+
+        {/* Log list */}
+        {loading ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {[...Array(8)].map((_,i) => <div key={i} className="skeleton" style={{ height: 68, borderRadius: "var(--radius-xl)" }} />)}
+          </div>
+        ) : displayLogs.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "72px 24px", background: "var(--glass-bg)", backdropFilter: "var(--glass-blur)", border: "1px solid var(--glass-border)", borderRadius: "var(--radius-2xl)", boxShadow: "var(--shadow-card-3d)" }}>
+            <Activity size={48} color="var(--text-disabled)" style={{ marginBottom: 16 }} />
+            <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>No logs found</h3>
+            <p style={{ fontSize: 13.5, color: "var(--text-muted)" }}>Activity events will appear here as you use the platform.</p>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {displayLogs.map((log, i) => <LogRow key={log._id || i} log={log} idx={i} />)}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && displayLogs.length > 0 && (
+          <div style={{ display: "flex", justifyContent: "center", gap: 10 }}>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ padding: "8px 20px", background: "var(--glass-bg)", border: "1px solid var(--glass-border)", borderRadius: "var(--radius-md)", color: page === 1 ? "var(--text-disabled)" : "var(--text-primary)", fontSize: 13, fontWeight: 600, cursor: page === 1 ? "not-allowed" : "pointer" }}>Previous</button>
+            <div style={{ padding: "8px 16px", background: "var(--gradient-brand)", borderRadius: "var(--radius-md)", color: "#fff", fontSize: 13, fontWeight: 700 }}>Page {page}</div>
+            <button onClick={() => setPage(p => p + 1)} disabled={!hasMore} style={{ padding: "8px 20px", background: "var(--glass-bg)", border: "1px solid var(--glass-border)", borderRadius: "var(--radius-md)", color: !hasMore ? "var(--text-disabled)" : "var(--text-primary)", fontSize: 13, fontWeight: 600, cursor: !hasMore ? "not-allowed" : "pointer" }}>Next</button>
+          </div>
+        )}
       </div>
-
-      <style>{`
-        .audit-page {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        /* Filter Bar */
-        .filter-bar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 14px 18px;
-          gap: 12px;
-        }
-
-        .filter-bar-left {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .filter-icon-wrap {
-          width: 34px;
-          height: 34px;
-          border-radius: var(--radius-sm);
-          background: var(--accent-primary-subtle);
-          color: var(--accent-primary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .filter-select {
-          min-width: 150px;
-          padding: 8px 32px 8px 12px !important;
-          font-size: 13px !important;
-        }
-
-        .filter-count {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 13px;
-          color: var(--text-muted);
-          font-weight: 500;
-        }
-
-        /* Timeline Container */
-        .timeline-container {
-          padding: 24px;
-        }
-
-        .timeline-loading {
-          padding: 4px;
-        }
-
-        .empty-state {
-          text-align: center;
-          padding: 56px 24px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .empty-icon-wrap {
-          width: 64px;
-          height: 64px;
-          border-radius: var(--radius-full);
-          background: var(--bg-inset);
-          border: 1px solid var(--border-subtle);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--text-muted);
-          margin-bottom: 8px;
-        }
-
-        .empty-state h4 { font-size: 16px; }
-        .empty-state p { color: var(--text-muted); font-size: 13px; }
-
-        /* Timeline */
-        .timeline {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .tl-item {
-          display: flex;
-          gap: 16px;
-        }
-
-        .tl-track {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          flex-shrink: 0;
-          width: 36px;
-        }
-
-        .tl-node {
-          width: 36px;
-          height: 36px;
-          border-radius: var(--radius-full);
-          border: 2px solid;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-          z-index: 2;
-          box-shadow: var(--shadow-sm);
-        }
-
-        .tl-line {
-          width: 2px;
-          flex: 1;
-          background: linear-gradient(180deg, var(--border-standard), var(--border-subtle));
-          margin: 4px 0;
-          min-height: 16px;
-        }
-
-        .tl-item:last-child .tl-line { display: none; }
-
-        .tl-card {
-          flex: 1;
-          margin-bottom: 16px;
-          padding: 16px 18px;
-          background: var(--bg-inset);
-          border: 1px solid var(--border-subtle);
-          border-left: 3px solid;
-          border-radius: var(--radius-md);
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          transition: all var(--duration-normal) var(--ease-out);
-        }
-
-        .tl-card:hover {
-          border-color: var(--border-standard);
-          background: var(--bg-surface);
-          transform: translateX(2px);
-        }
-
-        .tl-card-top {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .tl-action-badge {
-          font-size: 11px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          padding: 3px 10px;
-          border-radius: var(--radius-full);
-        }
-
-        .tl-time {
-          font-size: 12px;
-          color: var(--text-muted);
-          font-family: var(--font-mono);
-        }
-
-        .tl-desc {
-          font-size: 13px;
-          color: var(--text-secondary);
-          line-height: 1.5;
-        }
-
-        .tl-desc strong {
-          color: var(--text-primary);
-          font-weight: 600;
-        }
-
-        .tl-desc code {
-          background: var(--bg-surface);
-          padding: 1px 6px;
-          border-radius: var(--radius-xs);
-          font-size: 12px;
-        }
-
-        .tl-meta-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-
-        .tl-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          font-size: 11px;
-          color: var(--text-muted);
-          background: var(--bg-surface);
-          padding: 3px 8px;
-          border-radius: var(--radius-full);
-          border: 1px solid var(--border-subtle);
-        }
-
-        .tl-chip-user {
-          color: var(--accent-primary);
-          background: var(--accent-primary-subtle);
-          border-color: hsla(217, 91%, 60%, 0.15);
-          font-weight: 600;
-        }
-
-        @media (max-width: 768px) {
-          .filter-bar {
-            flex-direction: column;
-            align-items: stretch;
-          }
-          .filter-bar-left {
-            flex-wrap: wrap;
-          }
-          .tl-card-top {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 4px;
-          }
-        }
-      `}</style>
     </Layout>
   );
 };

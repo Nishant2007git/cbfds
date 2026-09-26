@@ -1,458 +1,272 @@
-import React, { useEffect, useState } from 'react';
-import Layout from '../components/Layout.jsx';
-import api from '../utils/api.js';
-import { Share2, Link2, Copy, Check, EyeOff, Lock, Trash2, Calendar, Search, ExternalLink } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import Layout from "../components/Layout.jsx";
+import api from "../utils/api.js";
+import {
+  Share2, Link2, Copy, Check, EyeOff, Lock,
+  Trash2, Calendar, Search, ExternalLink, Clock,
+  ShieldCheck, AlertCircle, Download, Filter
+} from "lucide-react";
 
-const formatBytes = (bytes) => {
-  if (!bytes || bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+const formatBytes = (b) => {
+  if (!b || b === 0) return "0 B";
+  const k = 1024, sizes = ["B","KB","MB","GB"];
+  const i = Math.floor(Math.log(b) / Math.log(k));
+  return parseFloat((b / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+};
+
+const isActive = (share) => {
+  if (share.isRevoked) return false;
+  if (share.expiresAt && new Date(share.expiresAt) < new Date()) return false;
+  if (share.downloadLimit !== null && share.downloadCount >= share.downloadLimit) return false;
+  return true;
+};
+
+const StatusPill = ({ active }) => (
+  <div style={{
+    display: "inline-flex", alignItems: "center", gap: 6,
+    padding: "3px 10px", borderRadius: 99, fontSize: 11, fontWeight: 700,
+    background: active ? "hsla(142,71%,45%,0.15)" : "hsla(0,0%,100%,0.06)",
+    border: `1px solid ${active ? "hsla(142,71%,45%,0.3)" : "hsla(0,0%,100%,0.1)"}`,
+    color: active ? "var(--color-success)" : "var(--text-muted)",
+  }}>
+    <div style={{ width: 6, height: 6, borderRadius: "50%", background: active ? "var(--color-success)" : "var(--text-muted)", animation: active ? "pulse-glow 2s infinite" : "none" }} />
+    {active ? "Active" : "Expired"}
+  </div>
+);
+
+const ShareCard = ({ share, onRevoke, onCopy, copied }) => {
+  const active = isActive(share);
+  const link = `${window.location.origin}/share/${share.shareId}`;
+  const expiry = share.expiresAt ? new Date(share.expiresAt).toLocaleDateString() : null;
+
+  return (
+    <div style={{
+      position: "relative",
+      background: "var(--glass-bg)",
+      backdropFilter: "var(--glass-blur)",
+      border: `1px solid ${active ? "var(--glass-border)" : "hsla(0,0%,100%,0.04)"}`,
+      borderRadius: "var(--radius-xl)",
+      padding: "20px 22px",
+      transition: "transform 0.3s var(--ease-3d), box-shadow 0.3s ease, border-color 0.2s ease",
+      boxShadow: "var(--shadow-card-3d)",
+      opacity: active ? 1 : 0.55,
+    }}
+    onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-4px) translateZ(8px)"; e.currentTarget.style.boxShadow = "var(--shadow-2xl), var(--shadow-glow)"; }}
+    onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "var(--shadow-card-3d)"; }}
+    >
+      {/* Top gradient bar */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, borderRadius: "var(--radius-xl) var(--radius-xl) 0 0", background: active ? "var(--gradient-brand)" : "var(--glass-border)" }} />
+
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 40, height: 40, borderRadius: "var(--radius-md)", background: "var(--accent-primary-subtle)", border: "1px solid var(--accent-primary-glow)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Share2 size={18} color="var(--accent-primary)" />
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {share.file?.originalName || "Unnamed File"}
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>{formatBytes(share.file?.size || 0)}</div>
+          </div>
+        </div>
+        <StatusPill active={active} />
+      </div>
+
+      {/* Link bar */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "hsla(0,0%,0%,0.2)", borderRadius: "var(--radius-md)", border: "1px solid var(--glass-border)", marginBottom: 14 }}>
+        <Link2 size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+        <span style={{ flex: 1, fontSize: 11.5, fontFamily: "var(--font-mono)", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{link}</span>
+        <button onClick={() => onCopy(share.shareId)} style={{ background: "none", border: "none", cursor: "pointer", color: copied === share.shareId ? "var(--color-success)" : "var(--text-muted)", display: "flex", transition: "color 0.2s ease" }}>
+          {copied === share.shareId ? <Check size={14} /> : <Copy size={14} />}
+        </button>
+        <a href={link} target="_blank" rel="noreferrer" style={{ color: "var(--text-muted)", display: "flex" }}>
+          <ExternalLink size={14} />
+        </a>
+      </div>
+
+      {/* Meta row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 14 }}>
+        {expiry && (
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--text-muted)" }}>
+            <Calendar size={11} /> Expires {expiry}
+          </div>
+        )}
+        {share.downloadLimit !== null && (
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--text-muted)" }}>
+            <Download size={11} /> {share.downloadCount || 0}/{share.downloadLimit} downloads
+          </div>
+        )}
+        {share.passwordHash && (
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--accent-amber)" }}>
+            <Lock size={11} /> Password protected
+          </div>
+        )}
+        {share.isAnonymous && (
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--text-muted)" }}>
+            <EyeOff size={11} /> Anonymous
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
+      {active && (
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => onCopy(share.shareId)} style={{
+            flex: 1, padding: "8px 14px", background: "var(--accent-primary-subtle)", border: "1px solid var(--accent-primary-glow)",
+            borderRadius: "var(--radius-md)", color: "var(--accent-primary)", fontSize: 12, fontWeight: 600, cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.2s ease",
+          }}>
+            {copied === share.shareId ? <><Check size={12} /> Copied!</> : <><Copy size={12} /> Copy Link</>}
+          </button>
+          <button onClick={() => onRevoke(share.shareId)} style={{
+            padding: "8px 14px", background: "var(--color-danger-subtle)", border: "1px solid hsla(0,84%,60%,0.25)",
+            borderRadius: "var(--radius-md)", color: "var(--color-danger)", fontSize: 12, fontWeight: 600, cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 6, transition: "all 0.2s ease",
+          }}>
+            <Trash2 size={12} /> Revoke
+          </button>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const ShareBoard = () => {
   const [shares, setShares] = useState([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState(null);
-  const [activeFilter, setActiveFilter] = useState('Active');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState("Active");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchShares = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/shares');
+      const res = await api.get("/shares");
       setShares(res.data.data || []);
-    } catch (err) {
-      console.error('Failed to load outgoing shares', err);
-    } finally {
-      setLoading(false);
-    }
+    } catch {}
+    finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    fetchShares();
-  }, []);
+  useEffect(() => { fetchShares(); }, []);
 
   const handleRevoke = async (shareId) => {
-    if (!window.confirm('Are you sure you want to revoke this shared link? Access will be blocked immediately.')) return;
+    if (!window.confirm("Revoke this share link? Access will be blocked immediately.")) return;
     try {
       await api.delete(`/shares/${shareId}`);
       setShares(prev => prev.map(s => s.shareId === shareId ? { ...s, isRevoked: true } : s));
-    } catch (err) {
-      alert(err.response?.data?.error?.message || 'Failed to revoke shared link.');
-    }
+    } catch (err) { alert(err.response?.data?.error?.message || "Failed to revoke."); }
   };
 
-  const handleCopyLink = (shareId) => {
-    const link = `${window.location.origin}/share/${shareId}`;
-    navigator.clipboard.writeText(link);
+  const handleCopy = (shareId) => {
+    navigator.clipboard.writeText(`${window.location.origin}/share/${shareId}`);
     setCopiedId(shareId);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const isShareActive = (share) => {
-    if (share.isRevoked) return false;
-    if (share.expiresAt && new Date(share.expiresAt).getTime() < Date.now()) return false;
-    if (share.downloadLimit !== null && share.downloadCount >= share.downloadLimit) return false;
-    return true;
-  };
-
-  const filteredShares = shares.filter(share => {
-    const active = isShareActive(share);
-    const matchesSearch = (share.file?.originalName || '').toLowerCase().includes(searchQuery.toLowerCase());
-    
-    if (activeFilter === 'Active') return active && matchesSearch;
-    if (activeFilter === 'Expired') return !active && matchesSearch;
-    return matchesSearch; // All
+  const filtered = shares.filter(s => {
+    const active = isActive(s);
+    const matchSearch = (s.file?.originalName || "").toLowerCase().includes(searchQuery.toLowerCase());
+    if (activeFilter === "Active") return active && matchSearch;
+    if (activeFilter === "Expired") return !active && matchSearch;
+    return matchSearch;
   });
+
+  const filters = ["All", "Active", "Expired"];
+  const activeCount = shares.filter(s => isActive(s)).length;
 
   return (
     <Layout title="Shared Links">
-      <div className="shares-container">
-        
-        {/* Search & Filter Bar */}
-        <div className="glass-card header-filters animate-fadeInUp">
-          <div className="search-wrap">
-            <Search size={16} className="search-icon" />
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Search shared links..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        {/* Page header */}
+        <div style={{ animation: "fadeInUp 0.4s var(--ease-out) both" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent-secondary)", animation: "pulse-glow 2s infinite" }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Share Manager</span>
+          </div>
+          <h1 style={{ fontSize: "clamp(20px,3vw,28px)", fontWeight: 800, letterSpacing: "-0.02em" }}>
+            Shared <span className="text-gradient">Links</span>
+          </h1>
+          <p style={{ fontSize: 13.5, color: "var(--text-muted)", marginTop: 4 }}>{activeCount} active link{activeCount !== 1 ? "s" : ""} · {shares.length} total</p>
+        </div>
+
+        {/* Stats row */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, animation: "fadeInUp 0.5s var(--ease-out) 0.05s both" }}>
+          {[
+            { label: "Total Shares", value: shares.length, icon: Share2, color: "var(--accent-primary)", gradient: "var(--grad-blue)" },
+            { label: "Active Links", value: activeCount, icon: ShieldCheck, color: "var(--accent-emerald)", gradient: "var(--grad-teal)" },
+            { label: "Expired / Revoked", value: shares.length - activeCount, icon: AlertCircle, color: "var(--accent-amber)", gradient: "var(--grad-orange)" },
+          ].map((s, i) => (
+            <div key={i} style={{
+              background: "var(--glass-bg)", backdropFilter: "var(--glass-blur)",
+              border: "1px solid var(--glass-border)", borderRadius: "var(--radius-xl)",
+              padding: "18px 20px", display: "flex", alignItems: "center", gap: 14,
+              boxShadow: "var(--shadow-card-3d)", position: "relative", overflow: "hidden",
+            }}>
+              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: s.gradient }} />
+              <div style={{ width: 40, height: 40, borderRadius: "var(--radius-md)", background: s.gradient, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <s.icon size={18} color="#fff" />
+              </div>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text-primary)" }}>{s.value}</div>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>{s.label}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Search + Filter */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+          background: "var(--glass-bg)", backdropFilter: "var(--glass-blur)",
+          border: "1px solid var(--glass-border)", borderRadius: "var(--radius-xl)",
+          padding: "14px 20px", animation: "fadeInUp 0.5s var(--ease-out) 0.1s both",
+          boxShadow: "var(--shadow-card-3d)",
+        }}>
+          <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
+            <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} />
+            <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search shares..."
+              style={{ width: "100%", background: "hsla(0,0%,0%,0.2)", border: "1px solid var(--glass-border)", borderRadius: "var(--radius-md)", padding: "9px 12px 9px 36px", color: "var(--text-primary)", fontSize: 13, fontFamily: "var(--font-body)", outline: "none" }}
             />
           </div>
-
-          <div className="filter-tabs">
-            {['Active', 'Expired', 'All'].map(tab => (
-              <button
-                key={tab}
-                className={`filter-tab-btn ${activeFilter === tab ? 'active' : ''}`}
-                onClick={() => setActiveFilter(tab)}
-              >
-                {tab}
-              </button>
+          <div style={{ display: "flex", gap: 4, background: "hsla(0,0%,0%,0.2)", borderRadius: "var(--radius-md)", padding: 3 }}>
+            {filters.map(f => (
+              <button key={f} onClick={() => setActiveFilter(f)} style={{
+                padding: "7px 14px", border: "none", cursor: "pointer", borderRadius: "calc(var(--radius-md) - 2px)",
+                background: activeFilter === f ? "var(--gradient-brand)" : "transparent",
+                color: activeFilter === f ? "#fff" : "var(--text-muted)",
+                fontSize: 12.5, fontWeight: 600, transition: "all 0.2s ease",
+              }}>{f}</button>
             ))}
           </div>
         </div>
 
-        {/* Share Items List */}
-        <div className="shares-list animate-fadeInUp stagger-2">
-          {loading ? (
-            <div className="loading-grid">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="skeleton" style={{ height: 110, borderRadius: 'var(--radius-lg)', marginBottom: 12 }} />
-              ))}
-            </div>
-          ) : filteredShares.length === 0 ? (
-            <div className="empty-state glass-card">
-              <div className="empty-icon-wrap">
-                <Share2 size={28} />
+        {/* Cards grid */}
+        {loading ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px,1fr))", gap: 16 }}>
+            {[...Array(4)].map((_,i) => <div key={i} className="skeleton" style={{ height: 180, borderRadius: "var(--radius-xl)" }} />)}
+          </div>
+        ) : filtered.length > 0 ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px,1fr))", gap: 16 }}>
+            {filtered.map((s, i) => (
+              <div key={s.shareId} style={{ animation: `fadeInUp 0.4s var(--ease-out) ${i * 0.05}s both` }}>
+                <ShareCard share={s} onRevoke={handleRevoke} onCopy={handleCopy} copied={copiedId} />
               </div>
-              <h4>No shared links found</h4>
-              <p>Active or expired links matching your query will show up here.</p>
-            </div>
-          ) : (
-            <div className="shares-grid">
-              {filteredShares.map((share, idx) => {
-                const isActive = isShareActive(share);
-                const fileObj = share.file || {};
-                const shareUrl = share.type === 'EXTERNAL' ? `${window.location.origin}/share/${share.shareId}` : null;
-
-                return (
-                  <div key={share.shareId} className={`share-item-card glass-card ${!isActive ? 'revoked' : ''} animate-fadeInUp stagger-${Math.min(idx + 1, 8)}`}>
-                    <div className="card-left">
-                      <div className="card-top-row">
-                        <span className="file-title-txt">{fileObj.originalName || 'Unknown File'}</span>
-                        <span className="file-size-badge">{fileObj.fileSize ? formatBytes(fileObj.fileSize) : 'N/A'}</span>
-                      </div>
-                      
-                      {shareUrl && <div className="card-link-row">
-                        <span className="link-url-text" onClick={() => handleCopyLink(share.shareId)}>{shareUrl}</span>
-                      </div>}
-
-                      <div className="card-meta-row">
-                        <span className="meta-chip">
-                          {share.downloadCount} views
-                        </span>
-                        {share.expiresAt && (
-                          <span className="meta-chip">
-                            <Calendar size={11} />
-                            Expires in {Math.round((new Date(share.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days
-                          </span>
-                        )}
-                        {share.accessKeyHash && (
-                          <span className="meta-chip text-green">
-                            <Lock size={11} /> Password Active
-                          </span>
-                        )}
-                        {share.type === 'INTERNAL' && <span className="meta-chip">Internal recipient-only share</span>}
-                      </div>
-                    </div>
-
-                    <div className="card-right">
-                      <span className={`status-badge ${isActive ? 'active' : 'revoked'}`}>
-                        {isActive ? 'Active' : share.isRevoked ? 'Revoked' : 'Expired'}
-                      </span>
-                      
-                      <div className="actions-group">
-                        {shareUrl && <button
-                          onClick={() => handleCopyLink(share.shareId)}
-                          className="action-btn"
-                          title="Copy Link"
-                          disabled={!isActive}
-                        >
-                          {copiedId === share.shareId ? <Check size={14} className="text-green" /> : <Copy size={14} />}
-                        </button>}
-                        {shareUrl && <button
-                          onClick={() => window.open(shareUrl, '_blank')}
-                          className="action-btn"
-                          title="Open Link"
-                          disabled={!isActive}
-                        >
-                          <ExternalLink size={14} />
-                        </button>}
-                        <button
-                          onClick={() => handleRevoke(share.shareId)}
-                          className="action-btn danger-hover"
-                          title="Revoke Share"
-                          disabled={!isActive}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
+            ))}
+          </div>
+        ) : (
+          <div style={{
+            textAlign: "center", padding: "64px 24px",
+            background: "var(--glass-bg)", backdropFilter: "var(--glass-blur)",
+            border: "1px solid var(--glass-border)", borderRadius: "var(--radius-2xl)",
+            boxShadow: "var(--shadow-card-3d)",
+          }}>
+            <Share2 size={48} color="var(--text-disabled)" style={{ marginBottom: 16 }} />
+            <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>No shared links</h3>
+            <p style={{ fontSize: 13.5, color: "var(--text-muted)" }}>Create share links from the File Browser to manage them here.</p>
+          </div>
+        )}
       </div>
-
-      <style>{`
-        .shares-container {
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }
-
-        /* Filters */
-        .header-filters {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 12px 18px;
-          gap: 16px;
-        }
-
-        .search-wrap {
-          position: relative;
-          display: flex;
-          align-items: center;
-          flex: 1;
-          max-width: 320px;
-        }
-
-        .search-icon {
-          position: absolute;
-          left: 12px;
-          color: var(--text-muted);
-        }
-
-        .search-input {
-          width: 100%;
-          background: hsl(230, 40%, 7%);
-          border: 1px solid var(--border-subtle);
-          color: var(--text-primary);
-          padding: 8px 12px 8px 36px;
-          border-radius: var(--radius-md);
-          font-family: var(--font-body);
-          font-size: 13px;
-          outline: none;
-          transition: all var(--duration-normal);
-        }
-
-        .search-input:focus {
-          border-color: var(--accent-primary);
-          background: hsl(230, 36%, 9%);
-        }
-
-        .filter-tabs {
-          display: flex;
-          gap: 4px;
-          background: hsl(230, 40%, 7%);
-          padding: 3px;
-          border-radius: var(--radius-md);
-          border: 1px solid var(--border-subtle);
-        }
-
-        .filter-tab-btn {
-          background: transparent;
-          border: none;
-          color: var(--text-muted);
-          padding: 6px 16px;
-          font-size: 12px;
-          font-weight: 600;
-          border-radius: var(--radius-sm);
-          cursor: pointer;
-          transition: all var(--duration-fast);
-        }
-
-        .filter-tab-btn.active {
-          background: var(--bg-surface);
-          color: var(--text-primary);
-          box-shadow: var(--shadow-xs);
-        }
-
-        /* Shares Grid */
-        .shares-grid {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .share-item-card {
-          padding: 16px 20px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          border-left: 3px solid var(--accent-primary);
-          transition: all var(--duration-normal) var(--ease-out);
-        }
-
-        .share-item-card.revoked {
-          border-left-color: var(--text-disabled);
-          opacity: 0.6;
-        }
-
-        .card-left {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          flex: 1;
-          min-width: 0;
-        }
-
-        .card-top-row {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .file-title-txt {
-          font-size: 14px;
-          font-weight: 700;
-          color: var(--text-primary);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .file-size-badge {
-          font-size: 11px;
-          color: var(--text-muted);
-          font-family: var(--font-mono);
-        }
-
-        .card-link-row {
-          font-size: 12px;
-          color: var(--accent-primary);
-          font-family: var(--font-mono);
-          cursor: pointer;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          max-width: 90%;
-        }
-
-        .card-link-row:hover {
-          text-decoration: underline;
-        }
-
-        .card-meta-row {
-          display: flex;
-          gap: 10px;
-          align-items: center;
-          flex-wrap: wrap;
-        }
-
-        .meta-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          font-size: 11px;
-          color: var(--text-muted);
-          background: hsl(230, 40%, 7%);
-          padding: 2px 8px;
-          border-radius: var(--radius-full);
-          border: 1px solid var(--border-subtle);
-        }
-
-        .text-green {
-          color: var(--color-success) !important;
-        }
-
-        .card-right {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          gap: 12px;
-          flex-shrink: 0;
-        }
-
-        .status-badge {
-          font-size: 10px;
-          font-weight: 700;
-          text-transform: uppercase;
-          padding: 2px 8px;
-          border-radius: var(--radius-full);
-        }
-
-        .status-badge.active { background: var(--color-success-subtle); color: var(--color-success); }
-        .status-badge.revoked { background: var(--color-danger-subtle); color: var(--color-danger); }
-
-        .actions-group {
-          display: flex;
-          gap: 6px;
-        }
-
-        .action-btn {
-          width: 32px;
-          height: 32px;
-          border-radius: var(--radius-md);
-          background: hsl(230, 40%, 7%);
-          border: 1px solid var(--border-subtle);
-          color: var(--text-secondary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all var(--duration-fast);
-        }
-
-        .action-btn:hover:not(:disabled) {
-          border-color: var(--border-standard);
-          color: var(--text-primary);
-          background: var(--bg-surface-hover);
-        }
-
-        .action-btn.danger-hover:hover:not(:disabled) {
-          border-color: var(--color-danger);
-          color: var(--color-danger);
-          background: var(--color-danger-subtle);
-        }
-
-        .action-btn:disabled {
-          opacity: 0.3;
-          cursor: not-allowed;
-        }
-
-        .empty-state {
-          padding: 48px;
-          text-align: center;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .empty-icon-wrap {
-          width: 52px;
-          height: 52px;
-          border-radius: 50%;
-          background: hsl(230, 40%, 7%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--text-muted);
-          margin-bottom: 8px;
-        }
-
-        @media (max-width: 768px) {
-          .header-filters {
-            flex-direction: column;
-            align-items: stretch;
-          }
-          .search-wrap {
-            max-width: 100%;
-          }
-          .share-item-card {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 12px;
-          }
-          .card-right {
-            flex-direction: row;
-            justify-content: space-between;
-            align-items: center;
-            border-top: 1px solid var(--border-subtle);
-            padding-top: 10px;
-          }
-        }
-      `}</style>
     </Layout>
   );
 };
