@@ -109,6 +109,20 @@ const QuickActionDock = ({ onOpenShortcuts }) => {
           <span className="dock-tooltip">{themeMode}</span>
         </button>
 
+        {/* Action: Replay Splash Animation */}
+        <button 
+          className="dock-btn" 
+          onClick={() => {
+            soundSpells.playWhoosh();
+            window.dispatchEvent(new CustomEvent('cbfds-play-splash'));
+          }}
+          title="Replay Cybernetic Starting Animation"
+          aria-label="Replay Starting Animation"
+        >
+          <Sparkles size={16} />
+          <span className="dock-tooltip">Boot FX</span>
+        </button>
+
         {/* Action: Shortcuts HUD */}
         <button 
           className="dock-btn" 

@@ -39,6 +39,7 @@ const CommandPalette = () => {
     { label: 'Theme: Switch to Cyberpunk Matrix', action: () => setTheme('cyberpunk'), icon: Zap },
     { label: 'Theme: Switch to Solar Nebula', action: () => setTheme('solar'), icon: Flame },
     { label: 'Theme: Switch to AMOLED Obsidian', action: () => setTheme('amoled'), icon: Sparkles },
+    { label: 'Replay Cinematic Boot Animation', action: () => { soundSpells.playWhoosh(); window.dispatchEvent(new CustomEvent('cbfds-play-splash')); }, icon: Sparkles },
     { label: 'Toggle Sound FX Spells', action: () => { soundSpells.toggleMute(); }, icon: Volume2 },
     { label: 'Logout Session', action: () => { soundSpells.playDelete(); logout(); }, icon: LogOut, danger: true },
   ];
