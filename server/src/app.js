@@ -97,7 +97,12 @@ const createApp = async () => {
       // CORS header. Browser origins must be explicitly allow-listed.
       if (!origin) return callback(null, true);
       const cleanOrigin = origin.trim().replace(/\/$/, '');
-      return callback(null, allowedOrigins.has(cleanOrigin));
+      const isRenderHost = /^https:\/\/[a-zA-Z0-9-]+\.onrender\.com$/.test(cleanOrigin);
+      const isLocalHost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin);
+      if (allowedOrigins.has(cleanOrigin) || isRenderHost || isLocalHost) {
+        return callback(null, true);
+      }
+      return callback(null, false);
     },
     credentials: true
   }));

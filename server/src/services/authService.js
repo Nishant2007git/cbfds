@@ -10,6 +10,7 @@ import {
 } from '../utils/errors.js';
 import emailService from './emailService.js';
 import logger from '../utils/logger.js';
+import { v4 as uuidv4 } from 'uuid';
 
 class AuthService {
   constructor(userRepository, refreshTokenRepository, otpRepository) {
@@ -45,7 +46,7 @@ class AuthService {
 
     const existingUser = await this.userRepo.findByEmail(email);
     if (existingUser) {
-      throw new ConflictError('Email is already registered.', 'AUTH_EMAIL_EXISTS');
+      throw new ConflictError('This email is already registered. Please sign in instead.', 'AUTH_EMAIL_EXISTS');
     }
 
     // Password strength check (requires min 8 chars, uppercase, lowercase, digit, and special character)
@@ -63,6 +64,7 @@ class AuthService {
 
     // Default quota assigned at database schema layer
     const newUser = await this.userRepo.create({
+      userId: uuidv4(),
       fullName: fullName.trim(),
       email: email.trim().toLowerCase(),
       passwordHash: password, // will be hashed automatically by user pre-save hook

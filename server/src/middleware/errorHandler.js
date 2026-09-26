@@ -40,12 +40,12 @@ const errorHandler = (err, req, res, next) => {
   // Handle MongoDB Duplicate Key Error (E11000)
   if (err.code === 11000) {
     const field = Object.keys(err.keyPattern || err.keyValue || {})[0] || 'field';
-    const message = field === 'email' ? 'This email is already registered.' : `${field} already exists.`;
+    const message = field === 'email' ? 'This email is already registered. Please sign in instead.' : `${field} already exists.`;
     logger.warn(`MongoDB Duplicate Key [ReqId: ${reqId}] - Field: ${field}`);
     return res.status(409).json({
       success: false,
       error: {
-        code: 'CONFLICT',
+        code: field === 'email' ? 'AUTH_EMAIL_EXISTS' : 'CONFLICT',
         message,
         details: { [field]: message }
       }

@@ -184,6 +184,7 @@ const Login = ({ initialMode = "login" }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState("");
+  const [isConflict, setIsConflict] = useState(false);
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const cardRef = useTilt(8);
@@ -204,6 +205,7 @@ const Login = ({ initialMode = "login" }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setIsConflict(false);
     setLoading(true);
     soundSpells.playClick?.();
     try {
@@ -219,7 +221,12 @@ const Login = ({ initialMode = "login" }) => {
         soundSpells.playSuccess?.();
       }
     } catch (err) {
-      setError(err.message || "Authentication failed.");
+      const is409 = err.response?.status === 409 || err.response?.data?.error?.code === 'AUTH_EMAIL_EXISTS';
+      const msg = is409
+        ? (err.response?.data?.error?.message || "This email is already registered. Please sign in instead.")
+        : (err.response?.data?.error?.message || err.response?.data?.message || err.message || "Authentication failed.");
+      setError(msg);
+      setIsConflict(is409);
       soundSpells.playError?.();
     } finally {
       setLoading(false);
@@ -229,6 +236,7 @@ const Login = ({ initialMode = "login" }) => {
   const toggleMode = () => {
     setIsRegister(p => !p);
     setError("");
+    setIsConflict(false);
     setPassword("");
     setConfirmPassword("");
     soundSpells.playHover?.();
@@ -390,7 +398,7 @@ const Login = ({ initialMode = "login" }) => {
             {["Sign In", "Sign Up"].map((tab, i) => {
               const active = isRegister ? i === 1 : i === 0;
               return (
-                <button key={tab} onClick={i === 0 ? () => { setIsRegister(false); setError(""); } : () => { setIsRegister(true); setError(""); }} style={{
+                <button key={tab} onClick={i === 0 ? () => { setIsRegister(false); setError(""); setIsConflict(false); } : () => { setIsRegister(true); setError(""); setIsConflict(false); }} style={{
                   flex: 1, padding: "10px", fontSize: 13.5, fontWeight: 600,
                   border: "none", cursor: "pointer", borderRadius: "calc(var(--radius-md) - 2px)",
                   background: active ? "var(--gradient-brand)" : "transparent",
@@ -407,15 +415,43 @@ const Login = ({ initialMode = "login" }) => {
           {/* Error message */}
           {error && (
             <div style={{
-              display: "flex", alignItems: "center", gap: 10,
+              display: "flex", flexDirection: "column", gap: 8,
               padding: "12px 16px", marginBottom: 20,
               background: "var(--color-danger-subtle)",
               border: "1px solid hsla(0,84%,60%,0.25)",
               borderRadius: "var(--radius-md)",
               animation: "scaleIn 0.25s var(--ease-spring)",
             }}>
-              <AlertCircle size={15} color="var(--color-danger)" />
-              <span style={{ fontSize: 13, color: "var(--color-danger)", fontWeight: 500 }}>{error}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <AlertCircle size={16} color="var(--color-danger)" style={{ flexShrink: 0 }} />
+                <span style={{ fontSize: 13, color: "var(--color-danger)", fontWeight: 500, lineHeight: 1.4 }}>{error}</span>
+              </div>
+              {isConflict && isRegister && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRegister(false);
+                    setError("");
+                    setIsConflict(false);
+                  }}
+                  style={{
+                    alignSelf: "flex-start",
+                    marginLeft: 26,
+                    padding: "5px 12px",
+                    background: "var(--gradient-brand)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "6px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    boxShadow: "0 2px 8px var(--accent-primary-glow)",
+                    transition: "all 0.2s"
+                  }}
+                >
+                  Switch to Sign In &rarr;
+                </button>
+              )}
             </div>
           )}
 

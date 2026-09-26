@@ -71,6 +71,16 @@ const processQueue = (error, token = null) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // Extract informative server error message into error.message
+    const serverMessage =
+      error.response?.data?.error?.message ||
+      error.response?.data?.message ||
+      (typeof error.response?.data === 'string' && !error.response.data.includes('<!DOCTYPE') ? error.response.data : null);
+
+    if (serverMessage && typeof serverMessage === 'string') {
+      error.message = serverMessage;
+    }
+
     const originalRequest = error.config;
 
     // Do not retry refresh route or non-401 errors
