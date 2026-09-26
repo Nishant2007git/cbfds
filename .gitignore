@@ -39,3 +39,7 @@ server/logs/
 
 # Docker local volumes
 .docker/
+
+# Local agentic skills directory
+agentic-awesome-skills/
+

@@ -134,6 +134,8 @@ const UploadZone = ({ onUploadComplete }) => {
       {/* Drop Zone */}
       <div
         className={`drop-zone glass-panel ${dragActive ? 'drag-active' : ''}`}
+        role="region"
+        aria-label="File upload drop zone"
         onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
         onDragLeave={() => setDragActive(false)}
         onDrop={(e) => {
@@ -174,11 +176,11 @@ const UploadZone = ({ onUploadComplete }) => {
               <span className="badge badge-primary">{completedCount}/{totalCount} complete</span>
             )}
           </div>
-          <div className="queue-list">
+          <div className="queue-list" aria-live="polite" aria-label="Upload progress">
             {uploads.map((item) => {
               const { icon: FIcon, color } = getFileIcon(item.name);
               return (
-                <div key={item.id} className={`queue-item ${item.status === 'completed' ? 'completed' : ''}`}>
+                <div key={item.id} className={`queue-item ${item.status === 'completed' ? 'completed' : ''} ${item.status === 'uploading' ? 'transfer-thread' : ''}`}>
                   <div className="queue-item-left">
                     <div className="queue-prog-ring">
                       <CircularProgress progress={item.progress} size={42} stroke={3} />

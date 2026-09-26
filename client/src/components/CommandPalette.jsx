@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import api from '../utils/api.js';
 import { 
-  Search, Terminal, LayoutDashboard, Folder, Upload, 
-  Share2, Activity, Trash2, LogOut, ChevronRight 
+  Search, LayoutDashboard, Folder, Upload, 
+  Share2, Activity, Trash2, LogOut, ChevronRight,
+  Moon, Zap, Flame, Sparkles, Volume2, VolumeX
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { soundSpells } from '../utils/soundSpells.js';
 
 const CommandPalette = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -19,15 +21,26 @@ const CommandPalette = () => {
   const navigate = useNavigate();
   const inputRef = useRef(null);
 
+  const setTheme = (themeName) => {
+    soundSpells.playSuccess();
+    localStorage.setItem('cbfds_theme', themeName);
+    document.documentElement.setAttribute('data-theme', themeName);
+  };
+
   // Command configurations
   const commands = [
-    { label: 'Go to Dashboard', action: () => navigate('/'), icon: LayoutDashboard },
-    { label: 'Go to File Browser', action: () => navigate('/files'), icon: Folder },
-    { label: 'Go to Upload Zone', action: () => navigate('/upload'), icon: Upload },
-    { label: 'Go to Shared Links', action: () => navigate('/shares'), icon: Share2 },
-    { label: 'Go to Security Logs', action: () => navigate('/audit-logs'), icon: Activity },
-    { label: 'Go to Trash Bin', action: () => navigate('/trash'), icon: Trash2 },
-    { label: 'Logout Session', action: () => logout(), icon: LogOut, danger: true },
+    { label: 'Go to Dashboard', action: () => { soundSpells.playClick(); navigate('/'); }, icon: LayoutDashboard },
+    { label: 'Go to File Browser', action: () => { soundSpells.playClick(); navigate('/files'); }, icon: Folder },
+    { label: 'Go to Upload Zone', action: () => { soundSpells.playClick(); navigate('/upload'); }, icon: Upload },
+    { label: 'Go to Shared Links', action: () => { soundSpells.playClick(); navigate('/shares'); }, icon: Share2 },
+    { label: 'Go to Security & Activity Logs', action: () => { soundSpells.playClick(); navigate('/audit-logs'); }, icon: Activity },
+    { label: 'Go to Trash Bin', action: () => { soundSpells.playClick(); navigate('/trash'); }, icon: Trash2 },
+    { label: 'Theme: Switch to Midnight Void', action: () => setTheme('midnight'), icon: Moon },
+    { label: 'Theme: Switch to Cyberpunk Matrix', action: () => setTheme('cyberpunk'), icon: Zap },
+    { label: 'Theme: Switch to Solar Nebula', action: () => setTheme('solar'), icon: Flame },
+    { label: 'Theme: Switch to AMOLED Obsidian', action: () => setTheme('amoled'), icon: Sparkles },
+    { label: 'Toggle Sound FX Spells', action: () => { soundSpells.toggleMute(); }, icon: Volume2 },
+    { label: 'Logout Session', action: () => { soundSpells.playDelete(); logout(); }, icon: LogOut, danger: true },
   ];
 
   // Fetch files for inline search
@@ -125,6 +138,7 @@ const CommandPalette = () => {
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (items[selectedIndex]) {
+        soundSpells.playClick();
         items[selectedIndex].action();
         setIsOpen(false);
       }
@@ -132,7 +146,7 @@ const CommandPalette = () => {
   };
 
   return createPortal(
-    <div className="palette-overlay" onClick={() => setIsOpen(false)}>
+    <div className="palette-overlay" onClick={() => { soundSpells.playClick(); setIsOpen(false); }}>
       <div className="palette-panel glass-panel animate-scaleIn" onClick={(e) => e.stopPropagation()} onKeyDown={handleKeyDown}>
         
         {/* Search header */}
@@ -165,10 +179,13 @@ const CommandPalette = () => {
                     key={item.label + idx}
                     className={`palette-item ${isSelected ? 'selected' : ''} ${item.danger ? 'danger' : ''}`}
                     onClick={() => {
+                      soundSpells.playClick();
                       item.action();
                       setIsOpen(false);
                     }}
-                    onMouseEnter={() => setSelectedIndex(idx)}
+                    onMouseEnter={() => {
+                      setSelectedIndex(idx);
+                    }}
                   >
                     <div className="palette-item-left">
                       <div className="item-icon-wrapper">

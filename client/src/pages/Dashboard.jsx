@@ -1,13 +1,14 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import api from '../utils/api.js';
 import {
-  HardDrive, FileText, Share2, Users, UploadCloud, FolderPlus,
-  ArrowUpRight, BarChart3, Trash2, Clock, CheckCircle, Shield,
-  Activity, ArrowUp, Link2, MoreVertical, File, Image, Film, HelpCircle
+  FileText, Share2, Users, UploadCloud, FolderPlus,
+  ArrowUpRight, BarChart3, Trash2,
+  ArrowUp, MoreVertical, File, Image, Film, HelpCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { soundSpells } from '../utils/soundSpells.js';
 
 const formatBytes = (bytes, decimals = 1) => {
   if (!bytes || bytes === 0) return '0 B';
@@ -105,7 +106,7 @@ const Dashboard = () => {
         
         {/* Top Header Row with Greeting */}
         <div className="dash-greeting-row animate-fadeInUp">
-          <h1 className="welcome-title">Good morning, {user?.fullName?.split(' ')[0] || 'System Admin'} 👋</h1>
+          <h1 className="welcome-title">Good morning, {user?.fullName?.split(' ')[0] || 'System Admin'}</h1>
           <p className="welcome-subtitle">Here's what's happening with your cloud storage today.</p>
         </div>
 
@@ -196,7 +197,7 @@ const Dashboard = () => {
             <div className="quick-actions-inner-grid">
               
               {/* Dropzone action */}
-              <div className="action-dropzone" onClick={() => navigate('/upload')}>
+              <div className="action-dropzone" role="button" tabIndex={0} onClick={() => { soundSpells.playClick(); navigate('/upload'); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); soundSpells.playClick(); navigate('/upload'); }}} style={{ cursor: 'pointer' }}>
                 <UploadCloud size={28} className="dropzone-icon" />
                 <span className="dropzone-text">Drag & drop files here</span>
                 <span className="dropzone-or">or</span>
@@ -206,7 +207,7 @@ const Dashboard = () => {
 
               {/* Action items grid */}
               <div className="actions-button-grid">
-                <div className="action-button-card" onClick={() => navigate('/files')}>
+                <div className="action-button-card" role="button" tabIndex={0} onClick={() => { soundSpells.playClick(); navigate('/files'); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); soundSpells.playClick(); navigate('/files'); }}} style={{ cursor: 'pointer' }}>
                   <div className="ab-icon icon-blue">
                     <FolderPlus size={18} />
                   </div>
@@ -216,7 +217,7 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <div className="action-button-card" onClick={() => navigate('/upload')}>
+                <div className="action-button-card" role="button" tabIndex={0} onClick={() => { soundSpells.playClick(); navigate('/upload'); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); soundSpells.playClick(); navigate('/upload'); }}} style={{ cursor: 'pointer' }}>
                   <div className="ab-icon icon-green">
                     <UploadCloud size={18} />
                   </div>
@@ -226,7 +227,7 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <div className="action-button-card" onClick={() => navigate('/shares')}>
+                <div className="action-button-card" role="button" tabIndex={0} onClick={() => { soundSpells.playClick(); navigate('/shares'); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); soundSpells.playClick(); navigate('/shares'); }}} style={{ cursor: 'pointer' }}>
                   <div className="ab-icon icon-purple">
                     <Share2 size={18} />
                   </div>
@@ -236,7 +237,7 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <div className="action-button-card" onClick={() => navigate('/audit-logs')}>
+                <div className="action-button-card" role="button" tabIndex={0} onClick={() => { soundSpells.playClick(); navigate('/audit-logs'); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); soundSpells.playClick(); navigate('/audit-logs'); }}} style={{ cursor: 'pointer' }}>
                   <div className="ab-icon icon-cyan">
                     <BarChart3 size={18} />
                   </div>
@@ -246,7 +247,7 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <div className="action-button-card" onClick={() => navigate('/trash')}>
+                <div className="action-button-card" role="button" tabIndex={0} onClick={() => { soundSpells.playClick(); navigate('/trash'); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); soundSpells.playClick(); navigate('/trash'); }}} style={{ cursor: 'pointer' }}>
                   <div className="ab-icon icon-orange">
                     <Trash2 size={18} />
                   </div>

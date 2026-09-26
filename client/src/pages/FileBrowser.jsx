@@ -10,6 +10,7 @@ import {
   ChevronUp, ChevronDown, Check, X, Shield, ShieldCheck, ShieldAlert,
   Loader, CheckSquare, Square, RotateCcw, Info, Maximize, Eye
 } from 'lucide-react';
+import { soundSpells } from '../utils/soundSpells.js';
 
 const formatBytes = (bytes) => {
   if (!bytes || bytes === 0) return '0 B';
@@ -206,6 +207,7 @@ const FileBrowser = () => {
     if (!window.confirm('Are you sure you want to delete this file?')) return;
     try {
       await api.delete(`/files/${fileId}`);
+      soundSpells.playDelete();
       setFiles(files.filter((f) => f.fileId !== fileId && f._id !== fileId));
       setSelectedIds(prev => prev.filter(id => id !== fileId));
       if (activeDrawerFile?.fileId === fileId) {
@@ -218,6 +220,7 @@ const FileBrowser = () => {
 
   const handleDownload = async (fileId, fileName) => {
     try {
+      soundSpells.playClick();
       const response = await api.get(`/files/${fileId}/download`, {
         responseType: 'blob'
       });
@@ -228,6 +231,7 @@ const FileBrowser = () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
+      soundSpells.playSuccess();
     } catch (err) {
       alert('Download failed.');
     }
@@ -474,6 +478,7 @@ const FileBrowser = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="search-input"
+              aria-label="Search files by name"
             />
           </div>
           <div className="total-files-indicator">
@@ -505,6 +510,9 @@ const FileBrowser = () => {
                         onClick={() => handleSelectAll(sortedFiles)}
                         className="btn-select-all"
                         title="Select All"
+                        role="checkbox"
+                        aria-checked={sortedFiles.length > 0 && sortedFiles.every(f => selectedIds.includes(f.fileId || f._id))}
+                        aria-label="Select all files"
                       >
                         {sortedFiles.every(f => selectedIds.includes(f.fileId || f._id)) ? (
                           <CheckSquare size={18} color="var(--accent-primary)" />
@@ -513,16 +521,16 @@ const FileBrowser = () => {
                         )}
                       </button>
                     </th>
-                    <th onClick={() => handleSort('originalName')} className="sortable-header">
+                    <th onClick={() => handleSort('originalName')} className="sortable-header" aria-sort={sortField === 'originalName' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
                       <span>File Name</span>
                       {renderSortIndicator('originalName')}
                     </th>
-                    <th onClick={() => handleSort('fileSize')} className="sortable-header">
+                    <th onClick={() => handleSort('fileSize')} className="sortable-header" aria-sort={sortField === 'fileSize' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
                       <span>Size</span>
                       {renderSortIndicator('fileSize')}
                     </th>
                     <th>Status</th>
-                    <th onClick={() => handleSort('createdAt')} className="sortable-header">
+                    <th onClick={() => handleSort('createdAt')} className="sortable-header" aria-sort={sortField === 'createdAt' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
                       <span>Uploaded At</span>
                       {renderSortIndicator('createdAt')}
                     </th>
@@ -550,6 +558,9 @@ const FileBrowser = () => {
                           <button 
                             onClick={() => handleSelectRow(fId)}
                             className="btn-select-row"
+                            role="checkbox"
+                            aria-checked={isSelected}
+                            aria-label={`Select ${file.originalName}`}
                           >
                             {isSelected ? (
                               <CheckSquare size={18} color="var(--accent-primary)" />

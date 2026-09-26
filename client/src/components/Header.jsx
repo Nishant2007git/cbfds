@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { Bell, Search, Sun, Moon, UploadCloud, Plus, Check, Shield, HardDrive, Sparkles, X } from 'lucide-react';
+import { Bell, Search, Sun, Moon, UploadCloud, Plus, Check, Shield, HardDrive, Sparkles, X, Flame, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { soundSpells } from '../utils/soundSpells.js';
 
 const Header = ({ title = 'Dashboard' }) => {
   const { user } = useAuth();
@@ -56,23 +57,38 @@ const Header = ({ title = 'Dashboard' }) => {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const markAllRead = () => {
+    soundSpells.playSuccess();
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
   const clearNotification = (id, e) => {
     e.stopPropagation();
+    soundSpells.playClick();
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   const cycleTheme = () => {
-    const nextTheme = themeMode === 'midnight' ? 'cyberpunk' : themeMode === 'cyberpunk' ? 'amoled' : 'midnight';
+    soundSpells.playClick();
+    const themes = ['midnight', 'cyberpunk', 'solar', 'amoled'];
+    const nextIndex = (themes.indexOf(themeMode) + 1) % themes.length;
+    const nextTheme = themes[nextIndex];
     setThemeMode(nextTheme);
     localStorage.setItem('cbfds_theme', nextTheme);
     document.documentElement.setAttribute('data-theme', nextTheme);
   };
 
   const openSearch = () => {
+    soundSpells.playWhoosh();
     window.dispatchEvent(new CustomEvent('open-command-palette'));
+  };
+
+  const getThemeIcon = () => {
+    switch (themeMode) {
+      case 'cyberpunk': return <Zap size={18} />;
+      case 'solar': return <Flame size={18} />;
+      case 'amoled': return <Sparkles size={18} />;
+      default: return <Moon size={18} />;
+    }
   };
 
   return (
@@ -110,7 +126,10 @@ const Header = ({ title = 'Dashboard' }) => {
             type="button"
             className={`header-action-btn notification-btn ${notificationsOpen ? 'active' : ''}`}
             title="Notifications"
-            onClick={() => setNotificationsOpen(!notificationsOpen)}
+            onClick={() => {
+              soundSpells.playWhoosh();
+              setNotificationsOpen(!notificationsOpen);
+            }}
           >
             <Bell size={18} />
             {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
@@ -144,6 +163,7 @@ const Header = ({ title = 'Dashboard' }) => {
                         key={item.id}
                         className={`notif-item ${item.read ? 'read' : 'unread'}`}
                         onClick={() => {
+                          soundSpells.playClick();
                           setNotifications(prev => prev.map(n => n.id === item.id ? { ...n, read: true } : n));
                         }}
                       >
@@ -179,11 +199,11 @@ const Header = ({ title = 'Dashboard' }) => {
           title={`Theme: ${themeMode.toUpperCase()} (Click to toggle)`}
           onClick={cycleTheme}
         >
-          {themeMode === 'midnight' ? <Moon size={18} /> : themeMode === 'cyberpunk' ? <Sparkles size={18} /> : <Sun size={18} />}
+          {getThemeIcon()}
         </button>
 
         {/* Upload Button */}
-        <button className="btn btn-primary header-upload-btn" onClick={() => navigate('/upload')}>
+        <button className="btn btn-primary header-upload-btn" onClick={() => { soundSpells.playClick(); navigate('/upload'); }}>
           <Plus size={16} />
           <span>Upload</span>
         </button>

@@ -1,43 +1,33 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Sidebar from './Sidebar.jsx';
 import Header from './Header.jsx';
 import CommandPalette from './CommandPalette.jsx';
+import BackgroundAura from './BackgroundAura.jsx';
+import QuickActionDock from './QuickActionDock.jsx';
+import KeyboardShortcutsModal from './KeyboardShortcutsModal.jsx';
 
 const Layout = ({ children, title = 'Dashboard' }) => {
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+
   return (
     <div className="layout-wrapper">
+      {/* Dynamic ambient particles & glowing orbs */}
+      <BackgroundAura />
+
       <Sidebar />
       <main className="layout-content">
         <Header title={title} />
         <div className="page-body">{children}</div>
       </main>
+
+      {/* Global Command Palette */}
       <CommandPalette />
 
-      <style>{`
-        .layout-wrapper {
-          display: flex;
-          min-height: 100vh;
-        }
+      {/* Floating Quick Action HUD */}
+      <QuickActionDock onOpenShortcuts={setShortcutsOpen} />
 
-        .layout-content {
-          flex: 1;
-          margin-left: 288px; /* Sidebar 256px + 32px gap */
-          padding: 16px 28px 40px 0;
-          min-width: 0;
-          transition: margin-left var(--duration-slow) var(--ease-out);
-        }
-
-        .page-body {
-          animation: fadeInUp 0.4s var(--ease-out) both;
-        }
-
-        @media (max-width: 768px) {
-          .layout-content {
-            margin-left: 0;
-            padding: 16px 16px 88px 16px;
-          }
-        }
-      `}</style>
+      {/* Interactive Keyboard Shortcuts Cheat Sheet */}
+      <KeyboardShortcutsModal isOpen={shortcutsOpen} onClose={setShortcutsOpen} />
     </div>
   );
 };

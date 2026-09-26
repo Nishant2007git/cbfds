@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { HardDrive, Lock, Mail, User as UserIcon, ArrowRight, Eye, EyeOff, Shield, Zap, Check, AlertCircle } from 'lucide-react';
+import { soundSpells } from '../utils/soundSpells.js';
 
 const Login = ({ initialMode = 'login' }) => {
   const { login, register } = useAuth();
@@ -38,6 +39,7 @@ const Login = ({ initialMode = 'login' }) => {
     e.preventDefault();
     setError('');
     setLoading(true);
+    soundSpells.playClick();
 
     try {
       if (isRegister) {
@@ -54,6 +56,7 @@ const Login = ({ initialMode = 'login' }) => {
           throw new Error('Passwords do not match.');
         }
         await register(fullName.trim(), email.trim(), password, confirmPassword);
+        soundSpells.playSuccess();
       } else {
         if (!email.trim()) {
           throw new Error('Please enter your email address.');
@@ -62,8 +65,10 @@ const Login = ({ initialMode = 'login' }) => {
           throw new Error('Please enter your password.');
         }
         await login(email.trim(), password);
+        soundSpells.playSuccess();
       }
     } catch (err) {
+      soundSpells.playDelete();
       let msg = '';
       const errData = err.response?.data;
       
@@ -125,6 +130,7 @@ const Login = ({ initialMode = 'login' }) => {
             type="button"
             className={`auth-tab ${!isRegister ? 'active' : ''}`}
             onClick={() => {
+              soundSpells.playClick();
               setIsRegister(false);
               setError('');
               setEmail('');
@@ -139,6 +145,7 @@ const Login = ({ initialMode = 'login' }) => {
             type="button"
             className={`auth-tab ${isRegister ? 'active' : ''}`}
             onClick={() => {
+              soundSpells.playClick();
               setIsRegister(true);
               setError('');
               setEmail('');
@@ -160,7 +167,9 @@ const Login = ({ initialMode = 'login' }) => {
               <button
                 type="button"
                 className="demo-pill-btn"
+                aria-label="Sign in as demo admin user"
                 onClick={() => {
+                  soundSpells.playClick();
                   setEmail('admin@library.com');
                   setPassword('Password123!');
                   setError('');
@@ -172,13 +181,15 @@ const Login = ({ initialMode = 'login' }) => {
               <button
                 type="button"
                 className="demo-pill-btn"
+                aria-label="Sign in as demo regular user"
                 onClick={() => {
-                  setEmail('user@example.com');
+                  soundSpells.playClick();
+                  setEmail('user@library.com');
                   setPassword('Password123!');
                   setError('');
                 }}
               >
-                <UserIcon size={12} />
+                <Zap size={12} />
                 <span>User</span>
               </button>
             </div>
@@ -187,7 +198,7 @@ const Login = ({ initialMode = 'login' }) => {
 
         {/* Error alert */}
         {error && (
-          <div className="auth-error animate-scaleIn">
+          <div className="auth-error animate-scaleIn" role="alert" aria-live="polite">
             <Shield size={16} />
             <span>{error}</span>
           </div>
@@ -244,6 +255,7 @@ const Login = ({ initialMode = 'login' }) => {
                 className="field-toggle"
                 onClick={() => setShowPassword(!showPassword)}
                 tabIndex={-1}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -297,6 +309,7 @@ const Login = ({ initialMode = 'login' }) => {
                   className="field-toggle"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   tabIndex={-1}
+                  aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
                 >
                   {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>

@@ -6,6 +6,7 @@ import {
   HardDrive, Share2, Trash2, Activity, Settings, Users, FileText,
   User, ChevronRight, X, Smartphone, Bell, Eye, HelpCircle, Sparkles
 } from 'lucide-react';
+import { soundSpells } from '../utils/soundSpells.js';
 
 const formatBytes = (bytes, decimals = 1) => {
   if (!bytes || bytes === 0) return '0 B';
@@ -61,7 +62,12 @@ const Sidebar = () => {
       (item.path !== '/' && location.pathname.startsWith(item.path));
 
     return (
-      <NavLink key={item.path + item.label} to={item.path} className={`sb-nav-item ${isActive ? 'active' : ''}`}>
+      <NavLink 
+        key={item.path + item.label} 
+        to={item.path} 
+        className={`sb-nav-item ${isActive ? 'active' : ''}`}
+        onClick={() => soundSpells.playClick()}
+      >
         {isActive && <div className="sb-active-bar" />}
         <Icon size={18} strokeWidth={isActive ? 2 : 1.5} />
         <span>{item.label}</span>
@@ -128,7 +134,7 @@ const Sidebar = () => {
         </div>
 
 
-        <button onClick={logout} className="sb-logout-btn">
+        <button onClick={() => { soundSpells.playDelete(); logout(); }} className="sb-logout-btn">
           <LogOut size={16} />
           <span>Logout</span>
         </button>
@@ -136,24 +142,24 @@ const Sidebar = () => {
 
       {/* Mobile Bottom Nav */}
       <nav className="mobile-nav glass-panel">
-        <NavLink to="/" className={`mob-link ${location.pathname === '/' ? 'active' : ''}`}>
+        <NavLink to="/" onClick={() => soundSpells.playClick()} className={`mob-link ${location.pathname === '/' ? 'active' : ''}`}>
           <LayoutDashboard size={20} strokeWidth={location.pathname === '/' ? 2.2 : 1.5} />
           <span>Dashboard</span>
         </NavLink>
-        <NavLink to="/files" className={`mob-link ${location.pathname.startsWith('/files') ? 'active' : ''}`}>
+        <NavLink to="/files" onClick={() => soundSpells.playClick()} className={`mob-link ${location.pathname.startsWith('/files') ? 'active' : ''}`}>
           <FolderKanban size={20} strokeWidth={location.pathname.startsWith('/files') ? 2.2 : 1.5} />
           <span>Files</span>
         </NavLink>
-        <NavLink to="/upload" className="mob-link-center">
+        <NavLink to="/upload" onClick={() => soundSpells.playClick()} className="mob-link-center">
           <div className="mob-plus-icon">
             <UploadCloud size={20} strokeWidth={2} />
           </div>
         </NavLink>
-        <NavLink to="/shares" className={`mob-link ${location.pathname.startsWith('/shares') ? 'active' : ''}`}>
+        <NavLink to="/shares" onClick={() => soundSpells.playClick()} className={`mob-link ${location.pathname.startsWith('/shares') ? 'active' : ''}`}>
           <Share2 size={20} strokeWidth={location.pathname.startsWith('/shares') ? 2.2 : 1.5} />
           <span>Shares</span>
         </NavLink>
-        <button onClick={() => setProfileOpen(true)} className="mob-link btn-reset">
+        <button onClick={() => { soundSpells.playWhoosh(); setProfileOpen(true); }} className="mob-link btn-reset">
           <User size={20} strokeWidth={1.5} />
           <span>Profile</span>
         </button>
@@ -161,11 +167,11 @@ const Sidebar = () => {
 
       {/* Premium Profile Modal (matches the exact mobile profile layout) */}
       {profileOpen && (
-        <div className="profile-overlay" onClick={() => setProfileOpen(false)}>
+        <div className="profile-overlay" onClick={() => { soundSpells.playClick(); setProfileOpen(false); }}>
           <div className="profile-drawer glass-panel animate-scaleIn" onClick={(e) => e.stopPropagation()}>
             <div className="drawer-header">
               <h3>Profile</h3>
-              <button className="close-btn" onClick={() => setProfileOpen(false)}>
+              <button className="close-btn" onClick={() => { soundSpells.playClick(); setProfileOpen(false); }}>
                 <X size={18} />
               </button>
             </div>

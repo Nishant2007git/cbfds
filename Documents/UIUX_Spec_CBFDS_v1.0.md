@@ -1,6 +1,4 @@
-# UI/UX Specification
-
-# Cloud-Based File Distribution System (CBFDS)
+# UI/UX Specification: Cloud-Based File Distribution System (CBFDS)
 
 **Version:** 1.0  
 **Date:** August 5, 2026  
@@ -13,6 +11,7 @@
 To deliver a premium, modern experience, the user interface follows a curated design system using a sleek dark mode, vibrant functional accent colors, and custom micro-animations.
 
 ### 1.1 Curated Color Palette (Tailored HSL)
+
 - **Backgrounds:**
   - Base Background: `hsl(222, 47%, 6%)` (Deep dark slate/blue)
   - Card/Container Surface: `hsl(222, 47%, 10%)` (Slightly lighter slate)
@@ -33,13 +32,16 @@ To deliver a premium, modern experience, the user interface follows a curated de
   - Muted/Disabled text: `hsl(215, 16%, 47%)`
 
 ### 1.2 Glassmorphism System
+
 Modals, tooltips, and floating navigation bars use glassmorphic panels:
+
 - Background: `hsla(222, 47%, 10%, 0.6)`
 - Blur effect: `backdrop-filter: blur(12px) saturate(180%)`
 - Shadow: `box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37)`
 - Border: `1px solid hsla(210, 40%, 98%, 0.05)`
 
 ### 1.3 Typography
+
 - **Primary Font:** `Outfit`, sans-serif (used for headings, dashboard stats, and high-visibility titles).
 - **Secondary Font:** `Inter`, sans-serif (used for tabular file grids, description copy, settings forms, and log tables).
 - **Text Scale:**
@@ -50,7 +52,9 @@ Modals, tooltips, and floating navigation bars use glassmorphic panels:
   - Small/Muted Text: `12px` (`font-weight: 400`, line-height `16px`)
 
 ### 1.4 Animations & Transitions
+
 All interactive states must execute smooth, hardware-accelerated transitions:
+
 - Hover Transition: `all 0.2s cubic-bezier(0.4, 0, 0.2, 1)`
 - Modal In/Out: Scale in with bounce `transform: scale(0.95)` to `scale(1)` (duration `0.25s`)
 - Upload Progress Bar: Width adjustments animate with `transition: width 0.3s ease-out`
@@ -63,7 +67,8 @@ All interactive states must execute smooth, hardware-accelerated transitions:
 The layout adapts seamlessly to three primary target viewports.
 
 ### 2.1 Viewport Specifications
-- **Desktop Grid (1024px and above):** 
+
+- **Desktop Grid (1024px and above):**
   - Layout: Fixed sidebar (`260px` width) + flexible workspace area.
   - Page margins: `32px` padding on all sides.
 - **Tablet Grid (768px - 1023px):**
@@ -74,7 +79,9 @@ The layout adapts seamlessly to three primary target viewports.
   - Page margins: `16px` padding on all sides.
 
 ### 2.2 Global Dashboard Grid
+
 Workspace components are organized in a standard grid:
+
 - Standard spacing: `gap: 24px`.
 - Columns: 12-column layout (spans dynamically: 12 cols on mobile, 6 cols on tablet, 3-4 cols on desktop).
 
@@ -83,9 +90,10 @@ Workspace components are organized in a standard grid:
 ## 3. Screen Layout Blueprints
 
 ### 3.1 Authentication Center (Login / Registration)
+
 Unified centering layout with a glassmorphic form card.
 
-```
+```text
 +-------------------------------------------------------------------+
 |                                                                   |
 |                      [ CBFDS Brand Logo ]                         |
@@ -116,9 +124,10 @@ Unified centering layout with a glassmorphic form card.
 ---
 
 ### 3.2 Main User Dashboard
+
 Dashboard dashboard metrics displaying storage consumption and recent events.
 
-```
+```text
 +-------------------------------------------------------------------+
 |  [Header: Welcome back, John Doe]                 (Notifications) |
 +-------------------------------------------------------------------+
@@ -147,9 +156,10 @@ Dashboard dashboard metrics displaying storage consumption and recent events.
 ---
 
 ### 3.3 File Browser
+
 A tabular interface supporting sorting, filtering, searching, and batch operations.
 
-```
+```text
 +-------------------------------------------------------------------+
 |  [Search: Find files...] [Filter: Type] [Sort: Newest] (Upload Button)|
 +-------------------------------------------------------------------+
@@ -169,9 +179,10 @@ A tabular interface supporting sorting, filtering, searching, and batch operatio
 ---
 
 ### 3.4 Resumable Upload Zone
+
 Drag-and-drop file target displaying progress states and chunk upload details.
 
-```
+```text
 +-------------------------------------------------------------------+
 |                                                                   |
 |          [ Drag & Drop files here or Browse to select ]            |
@@ -194,9 +205,10 @@ Drag-and-drop file target displaying progress states and chunk upload details.
 ---
 
 ### 3.5 Security Sharing Configuration Modal
+
 Pop-up interface to configure internal shares and external sharing link parameters.
 
-```
+```text
 +-------------------------------------------------------------------+
 |  Share File: report.pdf                                           |
 +-------------------------------------------------------------------+
@@ -222,6 +234,7 @@ Pop-up interface to configure internal shares and external sharing link paramete
 ## 4. Component Interaction States
 
 ### 4.1 Button Visual States
+
 - **Primary Action (Electric Blue Base):**
   - Default: `background-color: hsl(217, 91%, 60%)`
   - Hover: `background-color: hsl(217, 91%, 55%)`
@@ -232,13 +245,15 @@ Pop-up interface to configure internal shares and external sharing link paramete
   - Hover: `background: hsla(217, 91%, 60%, 0.1)`, `border-color: Electric Blue`
 
 ### 4.2 Form Inputs
+
 - Focus outline glows in `Focus Ring`.
 - Placeholder values use `hsl(215, 16%, 47%)` (muted text color).
 
 ### 4.3 Skeletons (Loading States)
+
 - While data is fetched, tables and widgets render placeholder cards with a pulsing gradient background running from right to left (`shimmer effect`).
 
-```
+```text
 +------------------------------------+
 |  Loading files...                  |
 |  ||||||||||||||||||||| (Shimmer)   |
@@ -247,11 +262,13 @@ Pop-up interface to configure internal shares and external sharing link paramete
 ```
 
 ### 4.4 Empty States
+
 - When no files are present (e.g. Empty Trash or Search with 0 results), render custom illustrations with muted messages:
   - Header: "No files discovered"
   - Subtext: "Drag and drop some files here to get started."
 
 ### 4.5 Global Toast Notifications
+
 - Floating alerts render at the top-right corner of the screen with a slide-in animation.
 - Alerts contain icons matching the notification type:
   - Success Toast: Checkmark icon with `Success Indicator` green color.
@@ -260,4 +277,4 @@ Pop-up interface to configure internal shares and external sharing link paramete
 
 ---
 
-*End of UI/UX Specification — CBFDS v1.0*
+End of UI/UX Specification — CBFDS v1.0

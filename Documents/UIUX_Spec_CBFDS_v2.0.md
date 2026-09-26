@@ -1,6 +1,4 @@
-# UI/UX Specification v2.0
-
-# Cloud-Based File Distribution System (CBFDS)
+# UI/UX Specification v2.0: Cloud-Based File Distribution System (CBFDS)
 
 **Version:** 2.0  
 **Date:** August 12, 2026  
@@ -22,7 +20,7 @@ The visual identity is defined using flexible CSS variables linked to HSL color 
 ### 2.1 Color Tokens (Tailored HSL)
 
 | Token Name | HSL Value | Hex Equivalent | Usage Description |
-|:---|:---|:---|:---|
+| :--- | :--- | :--- | :--- |
 | `--bg-base` | `hsl(222, 47%, 6%)` | `#080c14` | Primary body background (deep slate blue) |
 | `--bg-surface` | `hsl(222, 47%, 10%)` | `#0d1421` | Panels, sidebar, tables, and card elements |
 | `--bg-surface-hover` | `hsl(222, 47%, 14%)` | `#121c2e` | Accent state for hovered list rows or cards |
@@ -58,11 +56,12 @@ To construct layers, floating overlays (tooltips, navigation, modals) use glassm
 ### 2.3 Typography Matrix
 
 The system maps styles to two font families to separate technical/tabular context from promotional/administrative titles:
-*   **Outfit** (headings, metric highlights, dashboards).
-*   **Inter** (data tables, code segments, settings labels, regular copy).
+
+* **Outfit** (headings, metric highlights, dashboards).
+* **Inter** (data tables, code segments, settings labels, regular copy).
 
 | Category | Font Family | Size | Weight | Line Height | Usage Example |
-|:---|:---|:---|:---|:---|:---|
+| :--- | :--- | :--- | :--- | :--- | :--- |
 | **Display Title** | `Outfit` | `36px` | Bold (`700`) | `44px` | Welcome back headers, Hero sections |
 | **Page Title** | `Outfit` | `24px` | SemiBold (`600`) | `32px` | Dashboard subheadings, modal titles |
 | **Section Header** | `Outfit` | `18px` | SemiBold (`600`) | `26px` | Card boundaries, search parameters |
@@ -78,7 +77,7 @@ The system maps styles to two font families to separate technical/tabular contex
 
 A split-screen design. Left pane features the brand marketing and statistics; right pane holds the form.
 
-```
+```text
 +------------------------------------------+------------------------------------------+
 |                 BRAND ZONE               |                 FORM ZONE                |
 |                                          |                                          |
@@ -101,8 +100,10 @@ A split-screen design. Left pane features the brand marketing and statistics; ri
 ```
 
 #### OTP Code Verification Flow Overlay (Step 2)
+
 When logging in or resetting passwords, an OTP window pops up over the darkened layout:
-```
+
+```text
 +-------------------------------------------------------------+
 |                                                             |
 |                    Two-Factor Verification                  |
@@ -117,15 +118,16 @@ When logging in or resetting passwords, an OTP window pops up over the darkened 
 |                                                             |
 +-------------------------------------------------------------+
 ```
-*   **Interaction Detail:** Digit input fields automatically shift focus to the next box upon entry. Clicking backspace clears and returns focus to the preceding box.
+
+* **Interaction Detail:** Digit input fields automatically shift focus to the next box upon entry. Clicking backspace clears and returns focus to the preceding box.
 
 ---
 
-## 3.2 Main Dashboard Dashboard
+### 3.2 Main Dashboard
 
 Organized in a dynamic bento-grid layout:
 
-```
+```text
 +-------------------------------------------------------------------------------------+
 |  [Brand Sidebar]   |  [Top Header: Dashboard / user@example.com]         (Notifications) |
 |  - Dashboard       +----------------------------------------------------------------+
@@ -159,7 +161,7 @@ Organized in a dynamic bento-grid layout:
 
 Tabular grid layout optimized for large lists with bulk tools:
 
-```
+```text
 +-------------------------------------------------------------------------------------+
 |  [Search: Find files...]  [Filter: All Files]  [Sort: Size (Descending)]  (Upload File)  |
 +-------------------------------------------------------------------------------------+
@@ -174,10 +176,10 @@ Tabular grid layout optimized for large lists with bulk tools:
 +-------------------------------------------------------------------------------------+
 ```
 
-*   **Status Color Tags:**
-    *   `ACTIVE`: Emerald green tag (`background: hsla(142, 71%, 45%, 0.1)`, `color: hsl(142, 71%, 45%)`).
-    *   `PROCESS`: Shimmering amber tag (`background: hsla(38, 92%, 50%, 0.1)`, `color: hsl(38, 92%, 50%)`).
-    *   `BLOCKED`: Crimson red tag (`background: hsla(0, 84%, 60%, 0.1)`, `color: hsl(0, 84%, 60%)`).
+* **Status Color Tags:**
+  * `ACTIVE`: Emerald green tag (`background: hsla(142, 71%, 45%, 0.1)`, `color: hsl(142, 71%, 45%)`).
+  * `PROCESS`: Shimmering amber tag (`background: hsla(38, 92%, 50%, 0.1)`, `color: hsl(38, 92%, 50%)`).
+  * `BLOCKED`: Crimson red tag (`background: hsla(0, 84%, 60%, 0.1)`, `color: hsl(0, 84%, 60%)`).
 
 ---
 
@@ -185,7 +187,7 @@ Tabular grid layout optimized for large lists with bulk tools:
 
 Configures access permissions, password hashing parameters, and expiration gates.
 
-```
+```text
 +-------------------------------------------------------------------+
 |  Share Properties: archive.zip                                    |
 +-------------------------------------------------------------------+
@@ -219,7 +221,7 @@ Configures access permissions, password hashing parameters, and expiration gates
 
 Enables Super Admins and Admins to moderate users, adjust quotas, and audit system metrics.
 
-```
+```text
 +-------------------------------------------------------------------------------------+
 |  SYSTEM HEALTH: [DATABASE: OK] [REDIS: OK] [STORAGE: 64% CAPACITY] [WORKERS: 12 Idle] |
 +-------------------------------------------------------------------------------------+
@@ -303,7 +305,9 @@ For consistent development across frontend and automated testing, the design tok
 ## 5. Micro-interactions & Animation Specifications
 
 ### 5.1 Hover Dynamics
+
 Any interactive button, list row, or sidebar link must change state smoothly using CSS transitions:
+
 ```css
 .interactive-element {
   transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
@@ -320,7 +324,9 @@ Any interactive button, list row, or sidebar link must change state smoothly usi
 ```
 
 ### 5.2 Pulse Loading Shimmer (Skeleton)
+
 To represent asynchronous loading in tables, elements shimmer with a running background gradient:
+
 ```css
 @keyframes shimmer {
   0% {
@@ -344,7 +350,9 @@ To represent asynchronous loading in tables, elements shimmer with a running bac
 ```
 
 ### 5.3 Progress Bar Velocity & Smoothing
+
 Resumable uploads must not jump or freeze. The progress indicator transition:
+
 ```css
 .upload-progress-indicator {
   transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -357,11 +365,11 @@ Resumable uploads must not jump or freeze. The progress indicator transition:
 
 To satisfy production-grade usability constraints, all implementations must conform to these rules:
 
-1.  **Contrast Ratios:** Text-to-background contrast must remain above `4.5:1` for regular body text, and `3:1` for titles.
-2.  **Focus States:** Keyboard navigation (`Tab` key) must render a distinct focus indicator (`outline: 2px solid hsl(217, 91%, 60%); outline-offset: 2px`) around active form controls. Focus indicators must never be suppressed.
-3.  **ARIA Labels:** Form controls must include matching visual labels or `aria-label` tags. Drag-and-drop zones must expose `role="region"` and `aria-label="File Uploader"`.
-4.  **Screen-Reader Feedback:** State updates (e.g., "Upload complete", "Error: Quota Exceeded") must trigger screen-reader notifications using `aria-live="polite"` or `aria-live="assertive"`.
+1. **Contrast Ratios:** Text-to-background contrast must remain above `4.5:1` for regular body text, and `3:1` for titles.
+2. **Focus States:** Keyboard navigation (`Tab` key) must render a distinct focus indicator (`outline: 2px solid hsl(217, 91%, 60%); outline-offset: 2px`) around active form controls. Focus indicators must never be suppressed.
+3. **ARIA Labels:** Form controls must include matching visual labels or `aria-label` tags. Drag-and-drop zones must expose `role="region"` and `aria-label="File Uploader"`.
+4. **Screen-Reader Feedback:** State updates (e.g., "Upload complete", "Error: Quota Exceeded") must trigger screen-reader notifications using `aria-live="polite"` or `aria-live="assertive"`.
 
 ---
 
-*End of Specification — CBFDS v2.0*
+End of Specification — CBFDS v2.0

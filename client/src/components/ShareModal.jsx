@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import api from '../utils/api.js';
 import { X, Copy, Check, Lock, Calendar, Hash, Mail } from 'lucide-react';
+import { soundSpells } from '../utils/soundSpells.js';
 
 const ShareModal = ({ file, onClose }) => {
   const [shareType, setShareType] = useState('EXTERNAL'); // EXTERNAL or INTERNAL
@@ -21,6 +22,7 @@ const ShareModal = ({ file, onClose }) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    soundSpells.playClick();
 
     try {
       const payload = {
@@ -37,10 +39,10 @@ const ShareModal = ({ file, onClose }) => {
       const shareData = res.data.data;
       
       setCreatedShareType(shareData.type);
-      // Internal shares are recipient-bound and intentionally have no public
-      // bearer URL to copy or expose.
       setGeneratedLink(shareData.type === 'EXTERNAL' ? `${window.location.origin}/share/${shareData.shareId}` : '');
+      soundSpells.playSuccess();
     } catch (err) {
+      soundSpells.playDelete();
       setError(err.response?.data?.error?.message || 'Failed to generate share link.');
     } finally {
       setLoading(false);
@@ -50,6 +52,7 @@ const ShareModal = ({ file, onClose }) => {
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generatedLink);
     setCopied(true);
+    soundSpells.playSuccess();
     setTimeout(() => setCopied(false), 2000);
   };
 
