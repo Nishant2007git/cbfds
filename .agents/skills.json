@@ -1,0 +1,13 @@
+{
+  "entries": [
+    {
+      "path": "~/.gemini/config/skills/remotion"
+    },
+    {
+      "path": "~/.gemini/config/skills/remotion-best-practices"
+    }
+  ],
+  "inherits": [],
+  "exclude": [],
+  "include_only": []
+}
