@@ -1,926 +1,516 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext.jsx';
-import { HardDrive, Lock, Mail, User as UserIcon, ArrowRight, Eye, EyeOff, Shield, Zap, Check, AlertCircle } from 'lucide-react';
-import { soundSpells } from '../utils/soundSpells.js';
+import React, { useState, useEffect, useRef } from "react";
+import { useAuth } from "../context/AuthContext.jsx";
+import { HardDrive, Lock, Mail, User as UserIcon, ArrowRight, Eye, EyeOff, Shield, Zap, Check, AlertCircle } from "lucide-react";
+import { soundSpells } from "../utils/soundSpells.js";
 
-const Login = ({ initialMode = 'login' }) => {
+/* ─── 3D Tilt card hook ────────────────────────────────────────────── */
+function useTilt(strength = 12) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onMove = (e) => {
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = (e.clientX - cx) / (rect.width / 2);
+      const dy = (e.clientY - cy) / (rect.height / 2);
+      el.style.transform = `perspective(900px) rotateY(${dx * strength}deg) rotateX(${-dy * strength}deg) translateZ(20px)`;
+      el.style.setProperty("--mouse-x", `${((e.clientX - rect.left) / rect.width) * 100}%`);
+      el.style.setProperty("--mouse-y", `${((e.clientY - rect.top) / rect.height) * 100}%`);
+    };
+    const onLeave = () => { el.style.transform = "perspective(900px) rotateY(0deg) rotateX(0deg) translateZ(0)"; };
+    el.addEventListener("mousemove", onMove);
+    el.addEventListener("mouseleave", onLeave);
+    return () => { el.removeEventListener("mousemove", onMove); el.removeEventListener("mouseleave", onLeave); };
+  }, [strength]);
+  return ref;
+}
+
+/* ─── Floating label input ─────────────────────────────────────────── */
+const FloatInput = ({ icon: Icon, label, type = "text", value, onChange, suffix, autoComplete }) => {
+  const [focused, setFocused] = useState(false);
+  const active = focused || value.length > 0;
+  return (
+    <div className="float-input-wrap" style={{ position: "relative", marginBottom: 20 }}>
+      <div style={{
+        position: "relative",
+        background: "var(--glass-bg)",
+        backdropFilter: "blur(16px)",
+        border: `1px solid ${focused ? "var(--accent-primary)" : "var(--glass-border)"}`,
+        borderRadius: "var(--radius-md)",
+        transition: "border-color 0.25s ease, box-shadow 0.25s ease",
+        boxShadow: focused ? "0 0 0 3px var(--accent-primary-subtle), 0 4px 20px var(--accent-primary-subtle)" : "var(--shadow-md)",
+      }}>
+        {/* Label */}
+        <label style={{
+          position: "absolute",
+          left: Icon ? 44 : 14,
+          top: active ? 8 : "50%",
+          transform: active ? "none" : "translateY(-50%)",
+          fontSize: active ? 10 : 14,
+          fontWeight: 600,
+          color: focused ? "var(--accent-primary)" : "var(--text-muted)",
+          letterSpacing: active ? "0.07em" : "0",
+          textTransform: active ? "uppercase" : "none",
+          transition: "all 0.2s var(--ease-out)",
+          pointerEvents: "none",
+          userSelect: "none",
+        }}>
+          {label}
+        </label>
+        {/* Icon */}
+        {Icon && (
+          <div style={{
+            position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
+            color: focused ? "var(--accent-primary)" : "var(--text-muted)",
+            transition: "color 0.2s ease",
+            display: "flex",
+          }}>
+            <Icon size={16} />
+          </div>
+        )}
+        <input
+          type={type}
+          value={value}
+          onChange={onChange}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          autoComplete={autoComplete}
+          style={{
+            width: "100%",
+            background: "transparent",
+            border: "none",
+            outline: "none",
+            padding: active ? "26px 14px 10px" : "18px 14px",
+            paddingLeft: Icon ? (active ? 44 : 44) : 14,
+            paddingRight: suffix ? 44 : 14,
+            color: "var(--text-primary)",
+            fontFamily: "var(--font-body)",
+            fontSize: 14,
+            transition: "padding 0.2s ease",
+          }}
+        />
+        {suffix && (
+          <div style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }}>
+            {suffix}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ─── Password strength bar ─────────────────────────────────────────── */
+const StrengthBar = ({ checks }) => {
+  const score = Object.values(checks).filter(Boolean).length;
+  const colors = ["", "#ef4444", "#f59e0b", "#3b82f6", "#10b981", "#22c55e"];
+  const labels = ["", "Very Weak", "Weak", "Fair", "Strong", "Very Strong"];
+  return (
+    <div style={{ marginTop: -12, marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+        {[1,2,3,4,5].map(i => (
+          <div key={i} style={{
+            flex: 1, height: 3, borderRadius: 99,
+            background: i <= score ? colors[score] : "var(--glass-border)",
+            transition: "background 0.3s ease",
+          }} />
+        ))}
+      </div>
+      {score > 0 && <div style={{ fontSize: 11, color: colors[score], fontWeight: 600, textAlign: "right" }}>{labels[score]}</div>}
+    </div>
+  );
+};
+
+/* ─── Check row ─────────────────────────────────────────────────────── */
+const CheckRow = ({ ok, label }) => (
+  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: ok ? "var(--color-success)" : "var(--text-muted)", transition: "color 0.2s ease" }}>
+    <Check size={12} strokeWidth={ok ? 3 : 1.5} />
+    {label}
+  </div>
+);
+
+/* ─── Decorative 3D floating shapes ─────────────────────────────────── */
+const FloatingShapes = () => (
+  <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }}>
+    {[
+      { size: 200, top: "8%", left: "-60px", color: "var(--accent-primary)", dur: "20s" },
+      { size: 140, bottom: "12%", right: "-40px", color: "var(--accent-secondary)", dur: "26s" },
+      { size: 100, top: "45%", left: "8%", color: "var(--accent-cyan)", dur: "18s" },
+      { size: 80, top: "20%", right: "12%", color: "var(--accent-emerald)", dur: "22s" },
+    ].map((s, i) => (
+      <div key={i} style={{
+        position: "absolute",
+        width: s.size, height: s.size,
+        top: s.top, bottom: s.bottom, left: s.left, right: s.right,
+        background: `radial-gradient(circle, ${s.color} 0%, transparent 70%)`,
+        borderRadius: "50%",
+        filter: "blur(60px)",
+        opacity: 0.25,
+        animation: `orb-float ${s.dur} ease-in-out infinite alternate`,
+        animationDelay: `${-i * 4}s`,
+      }} />
+    ))}
+    {/* Grid lines */}
+    <div style={{
+      position: "absolute", inset: 0,
+      backgroundImage: "linear-gradient(to right, hsla(210,40%,98%,0.025) 1px, transparent 1px), linear-gradient(to bottom, hsla(210,40%,98%,0.025) 1px, transparent 1px)",
+      backgroundSize: "56px 56px",
+      maskImage: "radial-gradient(ellipse 70% 70% at 50% 50%, black 0%, transparent 100%)",
+      WebkitMaskImage: "radial-gradient(ellipse 70% 70% at 50% 50%, black 0%, transparent 100%)",
+    }} />
+    {/* 3D perspective grid bottom */}
+    <div style={{
+      position: "absolute", bottom: 0, left: 0, right: 0, height: "40%",
+      background: "linear-gradient(to top, var(--bg-base) 0%, transparent 100%)",
+      backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 40px, hsla(210,40%,98%,0.015) 40px, hsla(210,40%,98%,0.015) 41px), repeating-linear-gradient(90deg, transparent, transparent 40px, hsla(210,40%,98%,0.015) 40px, hsla(210,40%,98%,0.015) 41px)",
+      transform: "perspective(300px) rotateX(60deg) translateY(20%)",
+      transformOrigin: "bottom center",
+      opacity: 0.5,
+    }} />
+  </div>
+);
+
+/* ─── Main Login Component ─────────────────────────────────────────── */
+const Login = ({ initialMode = "login" }) => {
   const { login, register } = useAuth();
-  const [isRegister, setIsRegister] = useState(initialMode === 'register');
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isRegister, setIsRegister] = useState(initialMode === "register");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const cardRef = useTilt(8);
 
-  useEffect(() => {
-    setIsRegister(initialMode === 'register');
-  }, [initialMode]);
+  useEffect(() => { setIsRegister(initialMode === "register"); }, [initialMode]);
+  useEffect(() => { const t = setTimeout(() => setMounted(true), 80); return () => clearTimeout(t); }, []);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Live password validation checks
-  const passwordChecks = {
-    length: password.length >= 8,
-    upper: /[A-Z]/.test(password),
-    lower: /[a-z]/.test(password),
-    digit: /\d/.test(password),
+  const checks = {
+    length:  password.length >= 8,
+    upper:   /[A-Z]/.test(password),
+    lower:   /[a-z]/.test(password),
+    digit:   /\d/.test(password),
     special: /[^A-Za-z0-9]/.test(password),
   };
-  const isPasswordValid = Object.values(passwordChecks).every(Boolean);
+  const isPasswordValid = Object.values(checks).every(Boolean);
   const isPasswordMatch = confirmPassword.length > 0 && password === confirmPassword;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
-    soundSpells.playClick();
-
+    soundSpells.playClick?.();
     try {
       if (isRegister) {
-        if (!fullName.trim()) {
-          throw new Error('Please enter your full name.');
-        }
-        if (!email.trim()) {
-          throw new Error('Please enter your email address.');
-        }
-        if (!isPasswordValid) {
-          throw new Error('Password must be at least 8 characters long and contain uppercase, lowercase, number, and special character.');
-        }
-        if (password !== confirmPassword) {
-          throw new Error('Passwords do not match.');
-        }
+        if (!fullName.trim()) throw new Error("Please enter your full name.");
+        if (!isPasswordValid) throw new Error("Password does not meet all requirements.");
+        if (password !== confirmPassword) throw new Error("Passwords do not match.");
         await register(fullName.trim(), email.trim(), password, confirmPassword);
-        soundSpells.playSuccess();
+        soundSpells.playSuccess?.();
       } else {
-        if (!email.trim()) {
-          throw new Error('Please enter your email address.');
-        }
-        if (!password) {
-          throw new Error('Please enter your password.');
-        }
+        if (!email.trim() || !password) throw new Error("Please enter your email and password.");
         await login(email.trim(), password);
-        soundSpells.playSuccess();
+        soundSpells.playSuccess?.();
       }
     } catch (err) {
-      soundSpells.playDelete();
-      let msg = '';
-      const errData = err.response?.data;
-      
-      // If error details has specific field errors
-      if (errData?.error?.details && typeof errData.error.details === 'object') {
-        const detailValues = Object.values(errData.error.details).filter(Boolean);
-        if (detailValues.length > 0) {
-          msg = detailValues.join(' ');
-        }
-      }
-      
-      if (!msg && errData?.error?.message) {
-        msg = errData.error.message;
-      } else if (!msg && errData?.message) {
-        msg = errData.message;
-      } else if (!msg && err.message) {
-        msg = err.message;
-      }
-      
-      if (!msg) {
-        msg = isRegister ? 'Registration failed. Please verify your details.' : 'Sign in failed. Please check your credentials.';
-      }
-      setError(msg);
+      setError(err.message || "Authentication failed.");
+      soundSpells.playError?.();
     } finally {
       setLoading(false);
     }
   };
 
+  const toggleMode = () => {
+    setIsRegister(p => !p);
+    setError("");
+    setPassword("");
+    setConfirmPassword("");
+    soundSpells.playHover?.();
+  };
+
+  /* features column */
+  const features = [
+    { icon: Shield, color: "var(--accent-primary)", title: "End-to-End Encryption", desc: "AES-256 + RSA hybrid — your files are unreadable to anyone but you." },
+    { icon: Zap, color: "var(--accent-cyan)", title: "Lightning Distribution", desc: "Chunked parallel uploads with sub-second latency at global scale." },
+    { icon: HardDrive, color: "var(--accent-secondary)", title: "Secure Storage", desc: "Redundant cloud storage with automatic integrity verification." },
+  ];
+
   return (
-    <div className="auth-page">
-      {/* Animated background orbs */}
-      <div className="auth-bg-effects">
-        <div className="orb orb-1" />
-        <div className="orb orb-2" />
-        <div className="orb orb-3" />
-        <div className="grid-overlay" />
-      </div>
+    <div style={{
+      position: "relative",
+      minHeight: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "var(--bg-base)",
+      overflow: "hidden",
+      padding: "24px 16px",
+    }}>
+      <FloatingShapes />
 
-      <div className={`auth-card glass-panel ${mounted ? 'auth-card-visible' : ''}`}>
-        {/* Brand header */}
-        <div className="auth-header">
-          <div className="auth-logo-wrapper">
-            <div className="auth-logo-ring" />
-            <div className="auth-logo">
-              <HardDrive size={28} strokeWidth={1.8} />
+      {/* ── 2-column layout ── */}
+      <div style={{
+        position: "relative",
+        zIndex: 10,
+        display: "grid",
+        gridTemplateColumns: "1fr 480px",
+        gap: 48,
+        maxWidth: 1100,
+        width: "100%",
+        alignItems: "center",
+        opacity: mounted ? 1 : 0,
+        transform: mounted ? "none" : "translateY(24px)",
+        transition: "opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out)",
+      }}
+      className="login-grid"
+      >
+        {/* ── Left: hero ── */}
+        <div style={{ padding: "0 24px" }}>
+          {/* Logo */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 48 }}>
+            <div style={{
+              width: 48, height: 48,
+              background: "var(--gradient-brand)",
+              borderRadius: "var(--radius-md)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 8px 24px var(--accent-primary-glow)",
+              animation: "float 4s ease-in-out infinite",
+            }}>
+              <HardDrive size={24} color="#fff" />
+            </div>
+            <div>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, letterSpacing: "-0.02em", color: "var(--text-primary)" }}>CBFDS</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" }}>File Distribution</div>
             </div>
           </div>
-          <h1 className="auth-title">
-            <span className="text-gradient">CBFDS</span>
+
+          {/* Headline */}
+          <h1 style={{ fontSize: "clamp(32px, 5vw, 56px)", fontWeight: 900, lineHeight: 1.05, letterSpacing: "-0.03em", marginBottom: 20 }}>
+            Secure Files.<br />
+            <span className="text-gradient-animated">Anywhere.</span>
           </h1>
-          <p className="auth-subtitle">
-            {isRegister ? 'Create your secure cloud storage account' : 'Secure Cloud File Distribution System'}
+          <p style={{ fontSize: 16, color: "var(--text-secondary)", maxWidth: 420, marginBottom: 48, lineHeight: 1.7 }}>
+            Enterprise-grade file distribution with military-grade encryption and real-time collaboration tools.
           </p>
-        </div>
 
-        {/* Tab Switcher */}
-        <div className="auth-tabs">
-          <button
-            type="button"
-            className={`auth-tab ${!isRegister ? 'active' : ''}`}
-            onClick={() => {
-              soundSpells.playClick();
-              setIsRegister(false);
-              setError('');
-              setEmail('');
-              setPassword('');
-              setConfirmPassword('');
-            }}
-          >
-            <Lock size={14} />
-            Sign In
-          </button>
-          <button
-            type="button"
-            className={`auth-tab ${isRegister ? 'active' : ''}`}
-            onClick={() => {
-              soundSpells.playClick();
-              setIsRegister(true);
-              setError('');
-              setEmail('');
-              setPassword('');
-              setConfirmPassword('');
-            }}
-          >
-            <UserIcon size={14} />
-            Register
-          </button>
-          <div className={`auth-tab-indicator ${isRegister ? 'right' : 'left'}`} />
-        </div>
-
-        {/* Quick Demo Access (Only in Sign In mode) */}
-        {!isRegister && (
-          <div className="demo-accounts-bar animate-fadeIn">
-            <span className="demo-hint-label">Quick Demo Login:</span>
-            <div className="demo-btn-group">
-              <button
-                type="button"
-                className="demo-pill-btn"
-                aria-label="Sign in as demo admin user"
-                onClick={() => {
-                  soundSpells.playClick();
-                  setEmail('admin@library.com');
-                  setPassword('Password123!');
-                  setError('');
-                }}
+          {/* Feature cards */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {features.map(({ icon: Icon, color, title, desc }, i) => (
+              <div key={i} style={{
+                display: "flex",
+                gap: 16,
+                padding: "16px 20px",
+                background: "var(--glass-bg)",
+                backdropFilter: "blur(20px)",
+                border: "1px solid var(--glass-border)",
+                borderRadius: "var(--radius-lg)",
+                transition: "transform 0.3s var(--ease-out), box-shadow 0.3s ease",
+                animation: `fadeInUp 0.5s var(--ease-out) ${0.1 + i * 0.1}s both`,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = "translateX(8px) translateZ(4px)"; e.currentTarget.style.boxShadow = "var(--shadow-glow)"; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}
               >
-                <Shield size={12} />
-                <span>Admin</span>
-              </button>
-              <button
-                type="button"
-                className="demo-pill-btn"
-                aria-label="Sign in as demo regular user"
-                onClick={() => {
-                  soundSpells.playClick();
-                  setEmail('user@library.com');
-                  setPassword('Password123!');
-                  setError('');
-                }}
-              >
-                <Zap size={12} />
-                <span>User</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Error alert */}
-        {error && (
-          <div className="auth-error animate-scaleIn" role="alert" aria-live="polite">
-            <Shield size={16} />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="auth-form">
-          {isRegister && (
-            <div className="field-group animate-fadeInUp stagger-1">
-              <label className="field-label">Full Name</label>
-              <div className="field-wrapper">
-                <UserIcon size={16} className="field-icon" />
-                <input
-                  type="text"
-                  className="field-input"
-                  placeholder="John Doe"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="field-group animate-fadeInUp stagger-2">
-            <label className="field-label">Email</label>
-            <div className="field-wrapper">
-              <Mail size={16} className="field-icon" />
-              <input
-                type="email"
-                className="field-input"
-                placeholder="name@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="field-group animate-fadeInUp stagger-3">
-            <label className="field-label">Password</label>
-            <div className="field-wrapper">
-              <Lock size={16} className="field-icon" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                className="field-input"
-                placeholder={isRegister ? 'Min 8 chars with symbols' : '••••••••'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <button
-                type="button"
-                className="field-toggle"
-                onClick={() => setShowPassword(!showPassword)}
-                tabIndex={-1}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-
-            {/* Interactive Password Requirements Checklist in Register Mode */}
-            {isRegister && (
-              <div className="password-checklist">
-                <div className="checklist-title">Password must contain:</div>
-                <div className="checklist-grid">
-                  <div className={`checklist-item ${passwordChecks.length ? 'met' : ''}`}>
-                    <Check size={11} className="check-icon" />
-                    <span>8+ characters</span>
-                  </div>
-                  <div className={`checklist-item ${passwordChecks.upper ? 'met' : ''}`}>
-                    <Check size={11} className="check-icon" />
-                    <span>Uppercase (A-Z)</span>
-                  </div>
-                  <div className={`checklist-item ${passwordChecks.lower ? 'met' : ''}`}>
-                    <Check size={11} className="check-icon" />
-                    <span>Lowercase (a-z)</span>
-                  </div>
-                  <div className={`checklist-item ${passwordChecks.digit ? 'met' : ''}`}>
-                    <Check size={11} className="check-icon" />
-                    <span>Number (0-9)</span>
-                  </div>
-                  <div className={`checklist-item ${passwordChecks.special ? 'met' : ''}`}>
-                    <Check size={11} className="check-icon" />
-                    <span>Special character (!@#$)</span>
-                  </div>
+                <div style={{
+                  width: 40, height: 40, borderRadius: "var(--radius-md)",
+                  background: `${color}22`,
+                  border: `1px solid ${color}44`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                }}>
+                  <Icon size={18} color={color} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4, color: "var(--text-primary)" }}>{title}</div>
+                  <div style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.5 }}>{desc}</div>
                 </div>
               </div>
-            )}
+            ))}
           </div>
+        </div>
 
-          {isRegister && (
-            <div className="field-group animate-fadeInUp stagger-4">
-              <label className="field-label">Confirm Password</label>
-              <div className="field-wrapper">
-                <Lock size={16} className="field-icon" />
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  className="field-input"
-                  placeholder="Re-enter your password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                />
-                <button
-                  type="button"
-                  className="field-toggle"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  tabIndex={-1}
-                  aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
-                >
-                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+        {/* ── Right: 3D glass auth card ── */}
+        <div
+          ref={cardRef}
+          className="spotlight-card"
+          style={{
+            background: "var(--glass-bg)",
+            backdropFilter: "var(--glass-blur-heavy)",
+            WebkitBackdropFilter: "var(--glass-blur-heavy)",
+            border: "1px solid var(--glass-border)",
+            borderRadius: "var(--radius-2xl)",
+            padding: "36px 32px",
+            boxShadow: "var(--shadow-card-3d)",
+            transition: "transform 0.4s var(--ease-3d), box-shadow 0.4s ease",
+            transformStyle: "preserve-3d",
+            willChange: "transform",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          {/* Top glow line */}
+          <div style={{
+            position: "absolute", top: 0, left: "10%", right: "10%", height: 1,
+            background: "linear-gradient(90deg, transparent, var(--accent-primary), transparent)",
+            opacity: 0.6,
+          }} />
+          {/* Shine overlay */}
+          <div style={{
+            position: "absolute", inset: 0,
+            background: "var(--gradient-card-shine)",
+            borderRadius: "inherit",
+            pointerEvents: "none",
+          }} />
+          {/* Spotlight follows mouse */}
+          <div style={{
+            position: "absolute", inset: 0, borderRadius: "inherit", pointerEvents: "none",
+            background: "radial-gradient(circle 250px at var(--mouse-x, 50%) var(--mouse-y, 50%), hsla(210,40%,98%,0.06) 0%, transparent 60%)",
+          }} />
+
+          {/* Mode toggle tabs */}
+          <div style={{
+            display: "flex",
+            background: "hsla(0,0%,0%,0.2)",
+            borderRadius: "var(--radius-md)",
+            padding: 4,
+            marginBottom: 28,
+            position: "relative",
+            zIndex: 1,
+          }}>
+            {["Sign In", "Sign Up"].map((tab, i) => {
+              const active = isRegister ? i === 1 : i === 0;
+              return (
+                <button key={tab} onClick={i === 0 ? () => { setIsRegister(false); setError(""); } : () => { setIsRegister(true); setError(""); }} style={{
+                  flex: 1, padding: "10px", fontSize: 13.5, fontWeight: 600,
+                  border: "none", cursor: "pointer", borderRadius: "calc(var(--radius-md) - 2px)",
+                  background: active ? "var(--gradient-brand)" : "transparent",
+                  color: active ? "#fff" : "var(--text-muted)",
+                  transition: "all 0.25s var(--ease-out)",
+                  boxShadow: active ? "0 4px 12px var(--accent-primary-glow)" : "none",
+                }}>
+                  {tab}
                 </button>
-              </div>
+              );
+            })}
+          </div>
 
-              {confirmPassword.length > 0 && (
-                <div className={`match-indicator ${isPasswordMatch ? 'matched' : 'mismatched'}`}>
-                  {isPasswordMatch ? (
-                    <>
-                      <Check size={13} />
-                      <span>Passwords match</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle size={13} />
-                      <span>Passwords do not match</span>
-                    </>
-                  )}
-                </div>
-              )}
+          {/* Error message */}
+          {error && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "12px 16px", marginBottom: 20,
+              background: "var(--color-danger-subtle)",
+              border: "1px solid hsla(0,84%,60%,0.25)",
+              borderRadius: "var(--radius-md)",
+              animation: "scaleIn 0.25s var(--ease-spring)",
+            }}>
+              <AlertCircle size={15} color="var(--color-danger)" />
+              <span style={{ fontSize: 13, color: "var(--color-danger)", fontWeight: 500 }}>{error}</span>
             </div>
           )}
 
-          <button
-            type="submit"
-            className={`auth-submit ${loading ? 'auth-submit-loading' : ''}`}
-            disabled={loading}
-          >
-            {loading ? (
-              <div className="spinner" />
-            ) : (
-              <>
-                <Zap size={16} />
-                <span>{isRegister ? 'Create Account' : 'Sign In'}</span>
-                <ArrowRight size={16} />
-              </>
+          <form onSubmit={handleSubmit} style={{ position: "relative", zIndex: 1 }}>
+            {isRegister && (
+              <div style={{ animation: "fadeInUp 0.3s var(--ease-out) both" }}>
+                <FloatInput icon={UserIcon} label="Full Name" value={fullName} onChange={e => setFullName(e.target.value)} autoComplete="name" />
+              </div>
             )}
-          </button>
-        </form>
 
-        {/* Footer */}
-        <div className="auth-footer">
-          <div className="auth-footer-divider">
-            <span>Encrypted & Secure</span>
-          </div>
-          <div className="auth-trust-badges">
-            <span className="trust-badge"><Shield size={12} /> 256-bit SSL</span>
-            <span className="trust-badge"><Lock size={12} /> E2E Encrypted</span>
+            <FloatInput icon={Mail} label="Email Address" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
+
+            <FloatInput
+              icon={Lock} label="Password"
+              type={showPassword ? "text" : "password"}
+              value={password} onChange={e => setPassword(e.target.value)}
+              autoComplete={isRegister ? "new-password" : "current-password"}
+              suffix={
+                <button type="button" onClick={() => setShowPassword(p => !p)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", display: "flex", padding: 0 }}>
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              }
+            />
+
+            {isRegister && password.length > 0 && <StrengthBar checks={checks} />}
+
+            {isRegister && (
+              <div style={{ animation: "fadeInUp 0.3s var(--ease-out) 0.1s both" }}>
+                <FloatInput
+                  icon={Lock} label="Confirm Password"
+                  type={showConfirm ? "text" : "password"}
+                  value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                  suffix={
+                    <button type="button" onClick={() => setShowConfirm(p => !p)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", display: "flex", padding: 0 }}>
+                      {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  }
+                />
+              </div>
+            )}
+
+            {isRegister && password.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 20, padding: "12px 14px", background: "hsla(0,0%,0%,0.15)", borderRadius: "var(--radius-md)", border: "1px solid var(--glass-border)" }}>
+                <CheckRow ok={checks.length} label="8+ characters" />
+                <CheckRow ok={checks.upper} label="Uppercase" />
+                <CheckRow ok={checks.lower} label="Lowercase" />
+                <CheckRow ok={checks.digit} label="Number" />
+                <CheckRow ok={checks.special} label="Special char" />
+                {confirmPassword.length > 0 && <CheckRow ok={isPasswordMatch} label="Passwords match" />}
+              </div>
+            )}
+
+            <button type="submit" disabled={loading} className="btn btn-primary" style={{
+              width: "100%", padding: "13px 24px", fontSize: 15, fontWeight: 700,
+              marginTop: 4,
+              background: "var(--gradient-brand)",
+              border: "none",
+              borderRadius: "var(--radius-md)",
+              boxShadow: "0 6px 24px var(--accent-primary-glow)",
+              cursor: loading ? "wait" : "pointer",
+              color: "#fff",
+              letterSpacing: "0.01em",
+              transition: "all 0.3s var(--ease-out)",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+            }}>
+              {loading ? (
+                <>
+                  <div style={{ width: 18, height: 18, border: "2.5px solid hsla(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin-slow 0.7s linear infinite" }} />
+                  {isRegister ? "Creating Account..." : "Signing In..."}
+                </>
+              ) : (
+                <>
+                  {isRegister ? "Create Account" : "Sign In"}
+                  <ArrowRight size={18} />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Footer */}
+          <div style={{ textAlign: "center", marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--glass-border)", position: "relative", zIndex: 1 }}>
+            <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
+              {isRegister ? "Already have an account? " : "New to CBFDS? "}
+            </span>
+            <button onClick={toggleMode} style={{
+              background: "none", border: "none", cursor: "pointer",
+              fontSize: 13, fontWeight: 700, color: "var(--accent-primary)",
+              textDecoration: "none",
+              transition: "opacity 0.2s",
+            }}>
+              {isRegister ? "Sign in instead" : "Create free account"}
+            </button>
           </div>
         </div>
       </div>
 
+      {/* Responsive CSS */}
       <style>{`
-        .auth-page {
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 24px;
-          position: relative;
-          overflow: hidden;
-        }
-
-        /* === Background Effects === */
-        .auth-bg-effects {
-          position: fixed;
-          inset: 0;
-          pointer-events: none;
-          z-index: 0;
-        }
-
-        .orb {
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(80px);
-          opacity: 0.4;
-        }
-
-        .orb-1 {
-          width: 500px;
-          height: 500px;
-          background: hsla(217, 91%, 60%, 0.15);
-          top: -10%;
-          left: -5%;
-          animation: float 8s ease-in-out infinite;
-        }
-
-        .orb-2 {
-          width: 400px;
-          height: 400px;
-          background: hsla(262, 83%, 58%, 0.12);
-          bottom: -10%;
-          right: -5%;
-          animation: float 10s ease-in-out infinite reverse;
-        }
-
-        .orb-3 {
-          width: 300px;
-          height: 300px;
-          background: hsla(160, 84%, 39%, 0.08);
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          animation: float 12s ease-in-out infinite 2s;
-        }
-
-        .grid-overlay {
-          position: absolute;
-          inset: 0;
-          background-image:
-            linear-gradient(hsla(210, 40%, 98%, 0.02) 1px, transparent 1px),
-            linear-gradient(90deg, hsla(210, 40%, 98%, 0.02) 1px, transparent 1px);
-          background-size: 60px 60px;
-        }
-
-        /* === Card === */
-        .auth-card {
-          width: 100%;
-          max-width: 420px;
-          padding: 40px 36px;
-          position: relative;
-          z-index: 1;
-          opacity: 0;
-          transform: translateY(24px) scale(0.97);
-          transition: all 0.7s var(--ease-out);
-        }
-
-        .auth-card-visible {
-          opacity: 1;
-          transform: translateY(0) scale(1);
-        }
-
-        /* === Logo === */
-        .auth-header {
-          text-align: center;
-          margin-bottom: 28px;
-        }
-
-        .auth-logo-wrapper {
-          position: relative;
-          width: 72px;
-          height: 72px;
-          margin: 0 auto 20px;
-        }
-
-        .auth-logo-ring {
-          position: absolute;
-          inset: -4px;
-          border-radius: 50%;
-          border: 2px solid transparent;
-          background: conic-gradient(from 0deg, var(--accent-primary), var(--accent-secondary), var(--accent-emerald), var(--accent-primary)) border-box;
-          -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
-          -webkit-mask-composite: xor;
-          mask-composite: exclude;
-          animation: spin-slow 6s linear infinite;
-        }
-
-        .auth-logo {
-          width: 72px;
-          height: 72px;
-          border-radius: 50%;
-          background: var(--gradient-brand);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #fff;
-          position: relative;
-          z-index: 1;
-          box-shadow: 0 0 30px var(--accent-primary-glow);
-        }
-
-        .auth-title {
-          font-size: 28px;
-          font-weight: 800;
-          letter-spacing: 2px;
-          margin-bottom: 6px;
-        }
-
-        .auth-subtitle {
-          color: var(--text-muted);
-          font-size: 13px;
-        }
-
-        /* === Tabs === */
-        .auth-tabs {
-          display: flex;
-          position: relative;
-          background: var(--bg-inset);
-          border-radius: var(--radius-md);
-          padding: 4px;
-          margin-bottom: 20px;
-          border: 1px solid var(--border-subtle);
-        }
-
-        .auth-tab {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          padding: 10px;
-          border: none;
-          background: none;
-          color: var(--text-muted);
-          font-weight: 600;
-          font-size: 13px;
-          font-family: var(--font-body);
-          border-radius: var(--radius-sm);
-          cursor: pointer;
-          transition: color var(--duration-normal) var(--ease-smooth);
-          position: relative;
-          z-index: 1;
-        }
-
-        .auth-tab.active {
-          color: #fff;
-        }
-
-        .auth-tab-indicator {
-          position: absolute;
-          top: 4px;
-          bottom: 4px;
-          width: calc(50% - 4px);
-          background: var(--gradient-brand);
-          border-radius: var(--radius-sm);
-          transition: all var(--duration-slow) var(--ease-spring);
-          z-index: 0;
-          box-shadow: 0 2px 8px var(--accent-primary-glow);
-        }
-
-        .auth-tab-indicator.left { left: 4px; }
-        .auth-tab-indicator.right { left: calc(50% + 0px); }
-
-        /* === Demo Box === */
-        .demo-box {
-          display: flex;
-          align-items: flex-start;
-          gap: 10px;
-          background: var(--accent-primary-subtle);
-          border: 1px solid hsla(217, 91%, 60%, 0.2);
-          padding: 12px 14px;
-          border-radius: var(--radius-md);
-          margin-bottom: 18px;
-        }
-
-        .demo-box-icon {
-          width: 28px;
-          height: 28px;
-          border-radius: var(--radius-sm);
-          background: var(--accent-primary);
-          color: #fff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .demo-box-content {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .demo-label {
-          font-size: 11px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: var(--accent-primary);
-        }
-
-        .demo-creds {
-          font-size: 12px;
-          color: var(--text-secondary);
-          font-family: var(--font-mono);
-        }
-
-        /* === Demo Accounts Bar === */
-        .demo-accounts-bar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          background: var(--accent-primary-subtle);
-          border: 1px solid hsla(217, 91%, 60%, 0.18);
-          border-radius: var(--radius-md);
-          padding: 8px 12px;
-          margin-bottom: 16px;
-          gap: 10px;
-        }
-
-        .demo-hint-label {
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-
-        .demo-btn-group {
-          display: flex;
-          gap: 6px;
-        }
-
-        .demo-pill-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          padding: 4px 10px;
-          background: var(--bg-surface);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-full, 9999px);
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--text-secondary);
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .demo-pill-btn:hover {
-          background: var(--accent-primary);
-          color: #fff;
-          border-color: var(--accent-primary);
-          transform: translateY(-1px);
-        }
-
-        /* === Error === */
-        .auth-error {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          background: var(--color-danger-subtle);
-          border: 1px solid hsla(0, 84%, 60%, 0.3);
-          color: hsl(0, 84%, 75%);
-          padding: 12px 14px;
-          border-radius: var(--radius-md);
-          font-size: 13px;
-          margin-bottom: 18px;
-        }
-
-        /* === Form Fields === */
-        .auth-form {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .field-group {
-          margin-bottom: 16px;
-        }
-
-        .field-label {
-          display: block;
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--text-secondary);
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          margin-bottom: 6px;
-        }
-
-        .field-wrapper {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-
-        .field-icon {
-          position: absolute;
-          left: 14px;
-          color: var(--text-disabled);
-          pointer-events: none;
-          transition: color var(--duration-normal) var(--ease-smooth);
-        }
-
-        .field-input {
-          width: 100%;
-          background: var(--bg-inset);
-          border: 1px solid var(--border-subtle);
-          color: var(--text-primary);
-          padding: 12px 14px 12px 42px;
-          border-radius: var(--radius-md);
-          font-family: var(--font-body);
-          font-size: 14px;
-          outline: none;
-          transition: all var(--duration-normal) var(--ease-out);
-          box-shadow: var(--shadow-inner);
-        }
-
-        .field-input:hover {
-          border-color: var(--border-standard);
-        }
-
-        .field-input:focus {
-          border-color: var(--accent-primary);
-          box-shadow: var(--shadow-inner), 0 0 0 3px var(--accent-primary-subtle);
-        }
-
-        .field-input:focus ~ .field-icon,
-        .field-input:focus + .field-icon {
-          color: var(--accent-primary);
-        }
-
-        .field-wrapper:focus-within .field-icon {
-          color: var(--accent-primary);
-        }
-
-        .field-input::placeholder {
-          color: var(--text-disabled);
-        }
-
-        .field-toggle {
-          position: absolute;
-          right: 12px;
-          background: none;
-          border: none;
-          color: var(--text-disabled);
-          cursor: pointer;
-          padding: 4px;
-          display: flex;
-          transition: color var(--duration-fast);
-        }
-
-        .field-toggle:hover {
-          color: var(--text-secondary);
-        }
-
-        .field-hint {
-          display: block;
-          font-size: 11px;
-          color: var(--text-muted);
-          margin-top: 6px;
-        }
-
-        /* === Password Requirements Checklist === */
-        .password-checklist {
-          margin-top: 8px;
-          padding: 8px 10px;
-          background: var(--bg-inset);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-sm);
-        }
-
-        .checklist-title {
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--text-muted);
-          margin-bottom: 6px;
-        }
-
-        .checklist-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 4px 8px;
-        }
-
-        .checklist-item {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          font-size: 10.5px;
-          color: var(--text-disabled);
-          transition: all 0.2s ease;
-        }
-
-        .checklist-item .check-icon {
-          opacity: 0.3;
-          stroke-width: 2.5;
-          flex-shrink: 0;
-        }
-
-        .checklist-item.met {
-          color: hsl(160, 84%, 45%);
-          font-weight: 500;
-        }
-
-        .checklist-item.met .check-icon {
-          opacity: 1;
-          color: hsl(160, 84%, 45%);
-        }
-
-        /* === Match Indicator === */
-        .match-indicator {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 11px;
-          margin-top: 6px;
-          padding: 3px 8px;
-          border-radius: var(--radius-sm);
-        }
-
-        .match-indicator.matched {
-          color: hsl(160, 84%, 45%);
-          background: hsla(160, 84%, 39%, 0.1);
-        }
-
-        .match-indicator.mismatched {
-          color: hsl(0, 84%, 65%);
-          background: hsla(0, 84%, 60%, 0.1);
-        }
-
-        /* === Submit === */
-        .auth-submit {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          width: 100%;
-          padding: 14px 20px;
-          margin-top: 8px;
-          background: var(--gradient-brand);
-          color: #fff;
-          border: none;
-          border-radius: var(--radius-md);
-          font-family: var(--font-body);
-          font-size: 14px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all var(--duration-normal) var(--ease-out);
-          box-shadow: 0 4px 16px var(--accent-primary-glow);
-          position: relative;
-          overflow: hidden;
-        }
-
-        .auth-submit::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(135deg, hsla(0,0%,100%,0.1), transparent 60%);
-          opacity: 0;
-          transition: opacity var(--duration-fast);
-        }
-
-        .auth-submit:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 24px var(--accent-primary-glow);
-          filter: brightness(1.08);
-        }
-
-        .auth-submit:hover::before {
-          opacity: 1;
-        }
-
-        .auth-submit:active {
-          transform: translateY(0);
-        }
-
-        .auth-submit:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-          transform: none !important;
-        }
-
-        .spinner {
-          width: 20px;
-          height: 20px;
-          border: 2px solid hsla(0, 0%, 100%, 0.3);
-          border-top-color: #fff;
-          border-radius: 50%;
-          animation: spin-slow 0.6s linear infinite;
-        }
-
-        /* === Footer === */
-        .auth-footer {
-          margin-top: 24px;
-        }
-
-        .auth-footer-divider {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          margin-bottom: 14px;
-        }
-
-        .auth-footer-divider::before,
-        .auth-footer-divider::after {
-          content: '';
-          flex: 1;
-          height: 1px;
-          background: var(--border-subtle);
-        }
-
-        .auth-footer-divider span {
-          font-size: 11px;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          white-space: nowrap;
-        }
-
-        .auth-trust-badges {
-          display: flex;
-          justify-content: center;
-          gap: 16px;
-        }
-
-        .trust-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          font-size: 11px;
-          color: var(--text-muted);
-        }
-
-        /* === Responsive === */
-        @media (max-width: 480px) {
-          .auth-card {
-            padding: 28px 20px;
-          }
-          .auth-title {
-            font-size: 24px;
-          }
+        @media (max-width: 900px) {
+          .login-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
+          .login-grid > div:first-child { display: none; }
         }
       `}</style>
     </div>

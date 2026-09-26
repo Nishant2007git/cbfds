@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "path": "~/.gemini/config/plugins/modern-web-guidance-plugin"
+    }
+  ],
+  "inherits": [],
+  "exclude": [],
+  "include_only": []
+}

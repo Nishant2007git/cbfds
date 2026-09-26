@@ -1,1418 +1,512 @@
-import React, { useEffect, useState } from 'react';
-import Layout from '../components/Layout.jsx';
-import { useAuth } from '../context/AuthContext.jsx';
-import api from '../utils/api.js';
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import Layout from "../components/Layout.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
+import api from "../utils/api.js";
 import {
   FileText, Share2, Users, UploadCloud, FolderPlus,
-  ArrowUpRight, BarChart3, Trash2,
-  ArrowUp, MoreVertical, File, Image, Film, HelpCircle
-} from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { soundSpells } from '../utils/soundSpells.js';
+  ArrowUpRight, Trash2, ArrowUp, File, Image, Film, HelpCircle,
+  Activity, Server, Shield, Zap, BarChart3, Clock
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { soundSpells } from "../utils/soundSpells.js";
 
+/* ──── Helpers ──────────────────────────────────────────────────────── */
 const formatBytes = (bytes, decimals = 1) => {
-  if (!bytes || bytes === 0) return '0 B';
+  if (!bytes || bytes === 0) return "0 B";
   const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals < 0 ? 0 : decimals)) + " " + sizes[i];
 };
 
 const getFileIcon = (name) => {
-  const ext = name?.split('.').pop()?.toLowerCase();
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return { icon: Image, color: 'var(--accent-cyan)' };
-  if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) return { icon: Film, color: 'var(--accent-rose)' };
-  if (['zip', 'rar', '7z'].includes(ext)) return { icon: File, color: 'var(--accent-amber)' };
-  if (['pdf', 'doc', 'docx', 'txt', 'md'].includes(ext)) return { icon: FileText, color: 'var(--accent-primary)' };
-  return { icon: File, color: 'var(--text-secondary)' };
+  const ext = name?.split(".").pop()?.toLowerCase();
+  if (["jpg","jpeg","png","gif","webp","svg"].includes(ext)) return { icon: Image, color: "var(--accent-cyan)" };
+  if (["mp4","mov","avi","mkv"].includes(ext)) return { icon: Film, color: "var(--accent-rose)" };
+  if (["zip","rar","7z"].includes(ext)) return { icon: File, color: "var(--accent-amber)" };
+  if (["pdf","doc","docx","txt","md"].includes(ext)) return { icon: FileText, color: "var(--accent-primary)" };
+  return { icon: File, color: "var(--text-secondary)" };
 };
 
-const MiniDonut = ({ percentage, size = 64, stroke = 6, color = 'var(--accent-primary)' }) => {
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percentage / 100) * circumference;
-
+/* ──── Mini Donut SVG ────────────────────────────────────────────────── */
+const MiniDonut = ({ percentage, size = 64, stroke = 6, color = "var(--accent-primary)" }) => {
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
   return (
     <svg width={size} height={size} className="mini-donut">
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} />
-      <circle
-        cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth={stroke}
-        strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
-        transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        style={{ transition: 'stroke-dashoffset 1s ease-in-out' }}
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+        strokeDasharray={circ} strokeDashoffset={circ - (percentage / 100) * circ}
+        strokeLinecap="round" transform={`rotate(-90 ${size/2} ${size/2})`}
+        style={{ transition: "stroke-dashoffset 1.2s var(--ease-out)" }}
       />
     </svg>
   );
 };
 
+/* ──── 3D Tilt Card Hook ──────────────────────────────────────────────── */
+function useTilt(ref, strength = 10) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onMove = (e) => {
+      const rect = el.getBoundingClientRect();
+      const dx = (e.clientX - rect.left - rect.width / 2) / (rect.width / 2);
+      const dy = (e.clientY - rect.top - rect.height / 2) / (rect.height / 2);
+      el.style.transform = `perspective(800px) rotateY(${dx * strength}deg) rotateX(${-dy * strength}deg) translateZ(12px)`;
+    };
+    const onLeave = () => { el.style.transform = ""; };
+    el.addEventListener("mousemove", onMove);
+    el.addEventListener("mouseleave", onLeave);
+    return () => { el.removeEventListener("mousemove", onMove); el.removeEventListener("mouseleave", onLeave); };
+  }, [ref, strength]);
+}
+
+/* ──── 3D Stat Card ──────────────────────────────────────────────────── */
+const StatCard3D = ({ label, value, sub, icon: Icon, gradient, badge, badgeDir, donut, delay = 0 }) => {
+  const ref = useRef(null);
+  useTilt(ref, 8);
+  return (
+    <div ref={ref} style={{
+      position: "relative",
+      background: "var(--glass-bg)",
+      backdropFilter: "var(--glass-blur)",
+      WebkitBackdropFilter: "var(--glass-blur)",
+      border: "1px solid var(--glass-border)",
+      borderRadius: "var(--radius-xl)",
+      padding: "22px 20px",
+      overflow: "hidden",
+      animation: `fadeInUp 0.5s var(--ease-out) ${delay}s both`,
+      transition: "transform 0.3s var(--ease-3d), box-shadow 0.3s ease",
+      boxShadow: "var(--shadow-card-3d)",
+      willChange: "transform",
+      cursor: "default",
+    }}>
+      {/* Top gradient bar */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: gradient, opacity: 0.9 }} />
+      {/* Top shine */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: "60%", background: "linear-gradient(180deg, hsla(210,40%,98%,0.04) 0%, transparent 100%)", borderRadius: "var(--radius-xl) var(--radius-xl) 0 0", pointerEvents: "none" }} />
+      
+      {/* Background glow */}
+      <div style={{ position: "absolute", inset: 0, background: gradient, opacity: 0.05, borderRadius: "inherit", filter: "blur(30px)", pointerEvents: "none" }} />
+
+      <div style={{ position: "relative", zIndex: 1, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>{label}</div>
+          <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--text-primary)", lineHeight: 1 }}>{value}</div>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>{sub}</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+          {donut ? (
+            <div style={{ position: "relative" }}>
+              <MiniDonut percentage={donut.pct} size={52} stroke={5} color={donut.color} />
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: donut.color }}>{donut.pct}%</div>
+            </div>
+          ) : (
+            <div style={{
+              width: 44, height: 44,
+              borderRadius: "var(--radius-md)",
+              background: gradient,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: `0 4px 14px ${gradient.includes("217") ? "var(--accent-primary-glow)" : "rgba(0,0,0,0.3)"}`,
+            }}>
+              {Icon && <Icon size={20} color="#fff" />}
+            </div>
+          )}
+          {badge && (
+            <div style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "#22c55e", background: "hsla(142,71%,45%,0.15)", border: "1px solid hsla(142,71%,45%,0.2)", borderRadius: "99px", padding: "2px 8px" }}>
+              <ArrowUp size={10} /> {badge}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ──── Animated ticker for a metric ─────────────────────────────────── */
+const AnimatedNum = ({ target }) => {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    let start = 0;
+    const end = typeof target === "number" ? target : parseInt(target) || 0;
+    const dur = 1200;
+    const step = 16;
+    const inc = end / (dur / step);
+    const t = setInterval(() => {
+      start = Math.min(start + inc, end);
+      setVal(Math.floor(start));
+      if (start >= end) clearInterval(t);
+    }, step);
+    return () => clearInterval(t);
+  }, [target]);
+  return <>{val}</>;
+};
+
+/* ──── Quick Action Button ───────────────────────────────────────────── */
+const ActionBtn = ({ icon: Icon, label, color, gradient, onClick }) => {
+  const ref = useRef(null);
+  return (
+    <button ref={ref} onClick={onClick} style={{
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10,
+      padding: "20px 12px",
+      background: "var(--glass-bg)",
+      backdropFilter: "blur(16px)",
+      border: "1px solid var(--glass-border)",
+      borderRadius: "var(--radius-lg)",
+      cursor: "pointer", color: "var(--text-primary)",
+      transition: "all 0.3s var(--ease-out)",
+      position: "relative", overflow: "hidden",
+    }}
+    onMouseEnter={e => {
+      e.currentTarget.style.transform = "translateY(-4px) translateZ(8px)";
+      e.currentTarget.style.borderColor = color;
+      e.currentTarget.style.boxShadow = `0 8px 24px ${color}33`;
+    }}
+    onMouseLeave={e => {
+      e.currentTarget.style.transform = "";
+      e.currentTarget.style.borderColor = "var(--glass-border)";
+      e.currentTarget.style.boxShadow = "";
+    }}
+    >
+      {/* Background glow */}
+      <div style={{ position: "absolute", inset: 0, background: gradient, opacity: 0, transition: "opacity 0.3s ease", pointerEvents: "none" }} className="action-bg-glow" />
+      <div style={{
+        width: 44, height: 44, borderRadius: "var(--radius-md)",
+        background: gradient, display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: `0 4px 14px ${color}44`,
+        transition: "transform 0.3s var(--ease-spring)",
+      }}>
+        <Icon size={20} color="#fff" />
+      </div>
+      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>{label}</span>
+    </button>
+  );
+};
+
+/* ──── File Row ─────────────────────────────────────────────────────── */
+const FileRow = ({ file, index, onClick }) => {
+  const { icon: FIcon, color } = getFileIcon(file.name);
+  return (
+    <div onClick={onClick} style={{
+      display: "flex", alignItems: "center", gap: 14, padding: "12px 16px",
+      background: "var(--glass-bg)",
+      backdropFilter: "blur(12px)",
+      border: "1px solid var(--glass-border)",
+      borderRadius: "var(--radius-md)",
+      cursor: "pointer",
+      transition: "all 0.25s var(--ease-out)",
+      animation: `fadeInUp 0.4s var(--ease-out) ${0.05 + index * 0.04}s both`,
+    }}
+    onMouseEnter={e => { e.currentTarget.style.transform = "translateX(6px)"; e.currentTarget.style.borderColor = color + "66"; e.currentTarget.style.boxShadow = `0 4px 16px ${color}22`; }}
+    onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.borderColor = "var(--glass-border)"; e.currentTarget.style.boxShadow = ""; }}
+    >
+      <div style={{ width: 36, height: 36, borderRadius: "var(--radius-sm)", background: color + "22", border: `1px solid ${color}44`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <FIcon size={16} color={color} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{file.name}</div>
+        <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>{formatBytes(file.size || 0)}</div>
+      </div>
+      <div style={{ fontSize: 11, color: "var(--text-disabled)", flexShrink: 0 }}>
+        {file.updatedAt ? new Date(file.updatedAt).toLocaleDateString() : ""}
+      </div>
+      <ArrowUpRight size={14} color="var(--text-muted)" />
+    </div>
+  );
+};
+
+/* ──── Activity row ─────────────────────────────────────────────────── */
+const ActivityRow = ({ text, time, color, icon: AIcon, index }) => (
+  <div style={{
+    display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 0",
+    borderBottom: "1px solid var(--glass-border)",
+    animation: `fadeInUp 0.4s var(--ease-out) ${0.1 + index * 0.05}s both`,
+  }}>
+    <div style={{ width: 32, height: 32, borderRadius: "50%", background: color + "20", border: `1px solid ${color}44`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+      <AIcon size={14} color={color} />
+    </div>
+    <div style={{ flex: 1 }}>
+      <div style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 500, lineHeight: 1.4 }}>{text}</div>
+      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>{time}</div>
+    </div>
+  </div>
+);
+
+/* ──── Storage Breakdown Bar ─────────────────────────────────────────── */
+const StorageBar = ({ label, pct, color }) => (
+  <div style={{ marginBottom: 14 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+      <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{pct}%</span>
+    </div>
+    <div style={{ height: 5, background: "var(--glass-bg)", borderRadius: 99, overflow: "hidden" }}>
+      <div style={{
+        height: "100%", width: `${pct}%`,
+        background: color, borderRadius: 99,
+        transition: "width 1s var(--ease-out)",
+        boxShadow: `0 0 8px ${color}88`,
+      }} />
+    </div>
+  </div>
+);
+
+/* ──── Main Dashboard ────────────────────────────────────────────────── */
 const Dashboard = () => {
   const { user, refreshUserData } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({ totalFiles: 0, activeShares: 0, trashItems: 0 });
   const [recentFiles, setRecentFiles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('All');
+  const [activeTab, setActiveTab] = useState("All");
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         await refreshUserData();
-        const filesRes = await api.get('/files?limit=5');
-        let sharesCount = 0;
-        let trashCount = 0;
-
-        try {
-          const sharesRes = await api.get('/shares/outgoing');
-          sharesCount = sharesRes.data.data?.length || 0;
-        } catch (e) {}
-
-        try {
-          const trashRes = await api.get('/files/trash');
-          trashCount = trashRes.data.data?.items?.length || trashRes.data.data?.length || 0;
-        } catch (e) {}
-
+        const filesRes = await api.get("/files?limit=6");
+        let sharesCount = 0, trashCount = 0;
+        try { const r = await api.get("/shares/outgoing"); sharesCount = r.data.data?.length || 0; } catch {}
+        try { const r = await api.get("/files/trash"); trashCount = r.data.data?.items?.length || r.data.data?.length || 0; } catch {}
         setRecentFiles(filesRes.data.data?.items || filesRes.data.data || []);
         setStats({
-          totalFiles: filesRes.data.data?.pagination?.totalItems || (filesRes.data.data?.items?.length || filesRes.data.data?.length || 0),
+          totalFiles: filesRes.data.data?.pagination?.totalItems || filesRes.data.data?.items?.length || filesRes.data.data?.length || 0,
           activeShares: sharesCount,
-          trashItems: trashCount
+          trashItems: trashCount,
         });
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
+      } catch {}
+      finally { setLoading(false); }
     };
     fetchData();
   }, []);
 
-  const quota = user?.storageQuota || 107374182400; // 100 GB
-  const used = user?.storageUsed || 52613248819; // ~49 GB
-  const percentage = Math.min(100, Math.round((used / quota) * 100));
+  const quota = user?.storageQuota || 107374182400;
+  const used = user?.storageUsed || 52613248819;
+  const pct = Math.min(100, Math.round((used / quota) * 100));
 
-  // Dummy activity data for aesthetic match
   const activities = [
-    { type: 'upload', text: 'Uploaded Project_Proposal.pdf', time: '2 minutes ago', color: 'var(--accent-rose)' },
-    { type: 'share', text: 'Created share link', time: '15 minutes ago', color: 'var(--accent-emerald)' },
-    { type: 'delete', text: 'Deleted old_report.docx', time: '1 hour ago', color: 'var(--accent-amber)' },
-    { type: 'upload', text: 'Uploaded UI_Prototype.mp4', time: '5 hours ago', color: 'var(--accent-primary)' },
-    { type: 'login', text: 'Logged in from new device', time: 'Yesterday at 10:30 PM', color: 'var(--accent-cyan)' }
+    { icon: UploadCloud, text: "Uploaded Project_Proposal.pdf", time: "2 minutes ago", color: "var(--accent-rose)" },
+    { icon: Share2,      text: "Created share link for design.zip", time: "15 min ago", color: "var(--accent-emerald)" },
+    { icon: Trash2,      text: "Deleted old_report.docx", time: "1 hour ago", color: "var(--accent-amber)" },
+    { icon: UploadCloud, text: "Uploaded UI_Prototype.mp4 (128 MB)", time: "5 hours ago", color: "var(--accent-primary)" },
+    { icon: Shield,      text: "New device sign-in detected", time: "Yesterday 10:30 PM", color: "var(--accent-cyan)" },
   ];
+
+  const quickActions = [
+    { icon: UploadCloud, label: "Upload",   color: "var(--accent-primary)",   gradient: "var(--grad-blue)",   path: "/upload" },
+    { icon: Share2,      label: "Share",    color: "var(--accent-emerald)",   gradient: "var(--grad-teal)",   path: "/shares" },
+    { icon: FolderPlus,  label: "Files",    color: "var(--accent-secondary)", gradient: "var(--grad-purple)", path: "/files" },
+    { icon: Users,       label: "Team",     color: "var(--accent-amber)",     gradient: "var(--grad-orange)", path: "/admin" },
+  ];
+
+  const firstName = user?.fullName?.split(" ")[0] || "System Admin";
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   return (
     <Layout title="Dashboard">
-      <div className="dash-container">
-        
-        {/* Top Header Row with Greeting */}
-        <div className="dash-greeting-row animate-fadeInUp">
-          <h1 className="welcome-title">Good morning, {user?.fullName?.split(' ')[0] || 'System Admin'}</h1>
-          <p className="welcome-subtitle">Here's what's happening with your cloud storage today.</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+
+        {/* ── Greeting ── */}
+        <div style={{ animation: "fadeInUp 0.5s var(--ease-out) both", marginTop: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--color-success)", boxShadow: "0 0 8px var(--color-success)", animation: "pulse-glow 2s ease-in-out infinite" }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Live Dashboard</span>
+          </div>
+          <h1 style={{ fontSize: "clamp(22px,3vw,32px)", fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 6, lineHeight: 1.2 }}>
+            {greeting}, <span className="text-gradient">{firstName}</span>
+          </h1>
+          <p style={{ fontSize: 14, color: "var(--text-muted)" }}>Here&apos;s what&apos;s happening with your cloud storage today.</p>
         </div>
 
-        {/* 1. Stat Cards Row */}
-        <div className="stats-row">
-          {/* Stat 1: Total Storage */}
-          <div className="glass-card stat-card-premium grad-purple-blue animate-fadeInUp stagger-1">
-            <div className="card-premium-left">
-              <span className="card-premium-label">Total Storage</span>
-              <div className="card-premium-value">
-                <span className="value-num">{formatBytes(used, 0)}</span>
-                <span className="value-sep">/</span>
-                <span className="value-total">{formatBytes(quota, 0)}</span>
-              </div>
-              <span className="card-premium-sub">{percentage}% Used</span>
+        {/* ── Stat Cards (4-col grid) ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
+          <StatCard3D label="Storage Used" value={formatBytes(used, 0)} sub={`${formatBytes(quota, 0)} total capacity`}
+            gradient="var(--gradient-brand)" donut={{ pct, color: "var(--accent-primary)" }} delay={0.05} />
+          <StatCard3D label="Total Files" value={stats.totalFiles || "1,248"} sub="Across all folders"
+            icon={FileText} gradient="var(--grad-teal)" badge="12%" delay={0.10} />
+          <StatCard3D label="Active Shares" value={stats.activeShares || "24"} sub="Links currently active"
+            icon={Share2} gradient="var(--grad-purple)" badge="5%" delay={0.15} />
+          <StatCard3D label="Registered Users" value="128" sub="Platform users"
+            icon={Users} gradient="var(--grad-orange)" badge="15%" delay={0.20} />
+        </div>
+
+        {/* ── Middle row: Quick Actions + Storage Breakdown ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 20 }}>
+          {/* Quick Actions */}
+          <div style={{
+            background: "var(--glass-bg)", backdropFilter: "var(--glass-blur)", border: "1px solid var(--glass-border)",
+            borderRadius: "var(--radius-xl)", padding: 24,
+            boxShadow: "var(--shadow-card-3d)",
+            animation: "fadeInUp 0.5s var(--ease-out) 0.25s both",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+              <Zap size={16} color="var(--accent-primary)" />
+              <h3 style={{ fontSize: 14, fontWeight: 700 }}>Quick Actions</h3>
             </div>
-            <div className="card-premium-right">
-              <div className="donut-holder">
-                <MiniDonut percentage={percentage} size={54} stroke={5} color="#fff" />
-                <span className="donut-pct-text">{percentage}%</span>
+
+            {/* Big upload zone */}
+            <div onClick={() => { soundSpells.playClick?.(); navigate("/upload"); }}
+              style={{
+                border: "2px dashed var(--accent-primary)", borderRadius: "var(--radius-lg)",
+                padding: "32px 24px", marginBottom: 16,
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12,
+                cursor: "pointer", background: "var(--accent-primary-subtle)",
+                transition: "all 0.3s var(--ease-out)",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "var(--accent-primary-subtle)"; e.currentTarget.style.transform = "scale(1.01)"; e.currentTarget.style.boxShadow = "0 8px 24px var(--accent-primary-glow)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "var(--accent-primary-subtle)"; e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}
+            >
+              <div style={{ width: 52, height: 52, borderRadius: "var(--radius-md)", background: "var(--gradient-brand)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 24px var(--accent-primary-glow)", animation: "float 3s ease-in-out infinite" }}>
+                <UploadCloud size={24} color="#fff" />
               </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Drop files here to upload</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>or click to browse files</div>
+              </div>
+            </div>
+
+            {/* 4 action buttons */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+              {quickActions.map(a => (
+                <ActionBtn key={a.label} icon={a.icon} label={a.label} color={a.color} gradient={a.gradient}
+                  onClick={() => { soundSpells.playClick?.(); navigate(a.path); }}
+                />
+              ))}
             </div>
           </div>
 
-          {/* Stat 2: Total Files */}
-          <div className="glass-card stat-card-premium grad-teal animate-fadeInUp stagger-2">
-            <div className="card-premium-left">
-              <span className="card-premium-label">Total Files</span>
-              <div className="card-premium-value">
-                <span className="value-num">{stats.totalFiles || '1,248'}</span>
-              </div>
-              <span className="card-premium-sub">All files uploaded</span>
+          {/* Storage Breakdown */}
+          <div style={{
+            background: "var(--glass-bg)", backdropFilter: "var(--glass-blur)", border: "1px solid var(--glass-border)",
+            borderRadius: "var(--radius-xl)", padding: 24,
+            boxShadow: "var(--shadow-card-3d)",
+            animation: "fadeInUp 0.5s var(--ease-out) 0.30s both",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+              <BarChart3 size={16} color="var(--accent-secondary)" />
+              <h3 style={{ fontSize: 14, fontWeight: 700 }}>Storage Breakdown</h3>
             </div>
-            <div className="card-premium-right">
-              <div className="card-badge badge-green">
-                <ArrowUp size={10} /> 12%
+            {/* Big radial */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
+              <div style={{ position: "relative" }}>
+                <MiniDonut percentage={pct} size={110} stroke={10} color="var(--accent-primary)" />
+                <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text-primary)" }}>{pct}%</div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Used</div>
+                </div>
               </div>
-              <div className="card-premium-icon">
-                <FileText size={20} />
-              </div>
-            </div>
-          </div>
-
-          {/* Stat 3: Active Shares */}
-          <div className="glass-card stat-card-premium grad-purple animate-fadeInUp stagger-3">
-            <div className="card-premium-left">
-              <span className="card-premium-label">Active Shares</span>
-              <div className="card-premium-value">
-                <span className="value-num">{stats.activeShares || '24'}</span>
-              </div>
-              <span className="card-premium-sub">Links active</span>
-            </div>
-            <div className="card-premium-right">
-              <div className="card-badge badge-purple">
-                <ArrowUp size={10} /> 5%
-              </div>
-              <div className="card-premium-icon">
-                <Share2 size={20} />
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 10, textAlign: "center" }}>
+                {formatBytes(used)} of {formatBytes(quota)} used
               </div>
             </div>
-          </div>
-
-          {/* Stat 4: Registered Users */}
-          <div className="glass-card stat-card-premium grad-orange animate-fadeInUp stagger-4">
-            <div className="card-premium-left">
-              <span className="card-premium-label">Registered Users</span>
-              <div className="card-premium-value">
-                <span className="value-num">128</span>
-              </div>
-              <span className="card-premium-sub">Total platform users</span>
-            </div>
-            <div className="card-premium-right">
-              <div className="card-badge badge-orange">
-                <ArrowUp size={10} /> 15%
-              </div>
-              <div className="card-premium-icon">
-                <Users size={20} />
-              </div>
-            </div>
+            <StorageBar label="Documents" pct={35} color="var(--accent-primary)" />
+            <StorageBar label="Images" pct={28} color="var(--accent-cyan)" />
+            <StorageBar label="Videos" pct={22} color="var(--accent-rose)" />
+            <StorageBar label="Archives" pct={15} color="var(--accent-amber)" />
           </div>
         </div>
 
-        {/* 2. Middle Row: Quick Actions + Storage Breakdown Sidebar */}
-        <div className="middle-split-grid">
-          {/* Quick Actions Panel */}
-          <div className="glass-card quick-actions-panel animate-fadeInUp stagger-5">
-            <h3 className="section-title">Quick Actions</h3>
-            <div className="quick-actions-inner-grid">
-              
-              {/* Dropzone action */}
-              <div className="action-dropzone" role="button" tabIndex={0} onClick={() => { soundSpells.playClick(); navigate('/upload'); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); soundSpells.playClick(); navigate('/upload'); }}} style={{ cursor: 'pointer' }}>
-                <UploadCloud size={28} className="dropzone-icon" />
-                <span className="dropzone-text">Drag & drop files here</span>
-                <span className="dropzone-or">or</span>
-                <button className="btn btn-primary dropzone-btn">Browse Files</button>
-                <span className="dropzone-limit">Max file size: 5 GB</span>
+        {/* ── Bottom row: Recent Files + Activity ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20 }}>
+          {/* Recent Files */}
+          <div style={{
+            background: "var(--glass-bg)", backdropFilter: "var(--glass-blur)", border: "1px solid var(--glass-border)",
+            borderRadius: "var(--radius-xl)", padding: 24,
+            boxShadow: "var(--shadow-card-3d)",
+            animation: "fadeInUp 0.5s var(--ease-out) 0.35s both",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <FileText size={16} color="var(--accent-primary)" />
+                <h3 style={{ fontSize: 14, fontWeight: 700 }}>Recent Files</h3>
               </div>
-
-              {/* Action items grid */}
-              <div className="actions-button-grid">
-                <div className="action-button-card" role="button" tabIndex={0} onClick={() => { soundSpells.playClick(); navigate('/files'); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); soundSpells.playClick(); navigate('/files'); }}} style={{ cursor: 'pointer' }}>
-                  <div className="ab-icon icon-blue">
-                    <FolderPlus size={18} />
-                  </div>
-                  <div className="ab-meta">
-                    <span className="ab-title">New Folder</span>
-                    <span className="ab-desc">Create a new folder</span>
-                  </div>
-                </div>
-
-                <div className="action-button-card" role="button" tabIndex={0} onClick={() => { soundSpells.playClick(); navigate('/upload'); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); soundSpells.playClick(); navigate('/upload'); }}} style={{ cursor: 'pointer' }}>
-                  <div className="ab-icon icon-green">
-                    <UploadCloud size={18} />
-                  </div>
-                  <div className="ab-meta">
-                    <span className="ab-title">Upload Files</span>
-                    <span className="ab-desc">Upload to cloud</span>
-                  </div>
-                </div>
-
-                <div className="action-button-card" role="button" tabIndex={0} onClick={() => { soundSpells.playClick(); navigate('/shares'); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); soundSpells.playClick(); navigate('/shares'); }}} style={{ cursor: 'pointer' }}>
-                  <div className="ab-icon icon-purple">
-                    <Share2 size={18} />
-                  </div>
-                  <div className="ab-meta">
-                    <span className="ab-title">Request Files</span>
-                    <span className="ab-desc">Get files from others</span>
-                  </div>
-                </div>
-
-                <div className="action-button-card" role="button" tabIndex={0} onClick={() => { soundSpells.playClick(); navigate('/audit-logs'); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); soundSpells.playClick(); navigate('/audit-logs'); }}} style={{ cursor: 'pointer' }}>
-                  <div className="ab-icon icon-cyan">
-                    <BarChart3 size={18} />
-                  </div>
-                  <div className="ab-meta">
-                    <span className="ab-title">Storage Analytics</span>
-                    <span className="ab-desc">View usage report</span>
-                  </div>
-                </div>
-
-                <div className="action-button-card" role="button" tabIndex={0} onClick={() => { soundSpells.playClick(); navigate('/trash'); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); soundSpells.playClick(); navigate('/trash'); }}} style={{ cursor: 'pointer' }}>
-                  <div className="ab-icon icon-orange">
-                    <Trash2 size={18} />
-                  </div>
-                  <div className="ab-meta">
-                    <span className="ab-title">Trash Bin</span>
-                    <span className="ab-desc">View deleted files</span>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          {/* Storage Overview Sidebar */}
-          <div className="glass-card storage-sidebar animate-fadeInUp stagger-5">
-            <div className="storage-sidebar-header">
-              <h3 className="section-title">Storage Overview</h3>
-              <span className="sb-timeframe-dropdown">This Month</span>
-            </div>
-
-            <div className="storage-sidebar-gauge-section">
-              <div className="gauge-holder">
-                <MiniDonut percentage={percentage} size={110} stroke={10} color="var(--accent-primary)" />
-                <div className="gauge-center-val">
-                  <span className="g-pct">{percentage}%</span>
-                  <span className="g-label">Used</span>
-                </div>
-              </div>
-              <div className="gauge-legend">
-                <div className="legend-item">
-                  <div className="legend-dot dot-used" />
-                  <span className="legend-label">Used</span>
-                  <span className="legend-value">{formatBytes(used, 0)}</span>
-                </div>
-                <div className="legend-item">
-                  <div className="legend-dot dot-available" />
-                  <span className="legend-label">Available</span>
-                  <span className="legend-value">{formatBytes(quota - used, 0)}</span>
-                </div>
-                <div className="legend-item">
-                  <div className="legend-dot dot-total" />
-                  <span className="legend-label">Total</span>
-                  <span className="legend-value">{formatBytes(quota, 0)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="storage-breakdown-section">
-              <h4 className="breakdown-title">Storage Breakdown</h4>
-              <div className="breakdown-list">
-                
-                <div className="breakdown-item">
-                  <div className="breakdown-meta">
-                    <span className="b-label"><FileText size={12} color="var(--accent-primary)" /> Documents</span>
-                    <span className="b-vals">22 GB (45%)</span>
-                  </div>
-                  <div className="progress-bar-container">
-                    <div className="progress-bar-fill progress-blue" style={{ width: '45%' }} />
-                  </div>
-                </div>
-
-                <div className="breakdown-item">
-                  <div className="breakdown-meta">
-                    <span className="b-label"><Image size={12} color="var(--accent-secondary)" /> Images</span>
-                    <span className="b-vals">12 GB (24%)</span>
-                  </div>
-                  <div className="progress-bar-container">
-                    <div className="progress-bar-fill progress-purple" style={{ width: '24%' }} />
-                  </div>
-                </div>
-
-                <div className="breakdown-item">
-                  <div className="breakdown-meta">
-                    <span className="b-label"><Film size={12} color="var(--accent-rose)" /> Videos</span>
-                    <span className="b-vals">8 GB (16%)</span>
-                  </div>
-                  <div className="progress-bar-container">
-                    <div className="progress-bar-fill progress-red" style={{ width: '16%' }} />
-                  </div>
-                </div>
-
-                <div className="breakdown-item">
-                  <div className="breakdown-meta">
-                    <span className="b-label"><HelpCircle size={12} color="var(--accent-orange)" /> Others</span>
-                    <span className="b-vals">7 GB (15%)</span>
-                  </div>
-                  <div className="progress-bar-container">
-                    <div className="progress-bar-fill progress-amber" style={{ width: '15%' }} />
-                  </div>
-                </div>
-
-              </div>
-
-              <button className="view-report-btn" onClick={() => navigate('/audit-logs')}>
-                View Full Report
+              <button onClick={() => navigate("/files")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--accent-primary)", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                View All <ArrowUpRight size={12} />
               </button>
             </div>
-          </div>
-        </div>
 
-        {/* 3. Bottom Row: Recent Files + Recent Activity */}
-        <div className="bottom-split-grid">
-          {/* Recent Files Table Container */}
-          <div className="glass-card recent-files-container animate-fadeInUp stagger-6">
-            <div className="recent-files-header">
-              <h3 className="section-title">Recent Files</h3>
-              <div className="recent-files-tabs">
-                {['All', 'Documents', 'Images', 'Videos', 'Others'].map(tab => (
-                  <button
-                    key={tab}
-                    className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
-                    onClick={() => setActiveTab(tab)}
-                  >
-                    {tab}
-                  </button>
+            {/* Tabs */}
+            <div style={{ display: "flex", gap: 4, marginBottom: 16, background: "hsla(0,0%,0%,0.15)", borderRadius: "var(--radius-sm)", padding: 3 }}>
+              {["All","Documents","Images","Videos"].map(tab => (
+                <button key={tab} onClick={() => setActiveTab(tab)} style={{
+                  flex: 1, padding: "6px 8px", fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer",
+                  borderRadius: "calc(var(--radius-sm) - 1px)",
+                  background: activeTab === tab ? "var(--gradient-brand)" : "transparent",
+                  color: activeTab === tab ? "#fff" : "var(--text-muted)",
+                  transition: "all 0.2s ease",
+                }}>{tab}</button>
+              ))}
+            </div>
+
+            {loading ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[...Array(4)].map((_,i) => <div key={i} className="skeleton" style={{ height: 56, borderRadius: "var(--radius-md)" }} />)}
+              </div>
+            ) : recentFiles.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {recentFiles.slice(0,6).map((file, i) => (
+                  <FileRow key={file._id || i} file={file} index={i} onClick={() => { soundSpells.playClick?.(); navigate("/files"); }} />
                 ))}
               </div>
-              <a href="/files" className="view-all-link">
-                View All <ArrowUpRight size={14} />
-              </a>
-            </div>
-
-            <div className="table-responsive">
-              <table className="recent-files-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Owner</th>
-                    <th>Size</th>
-                    <th>Type</th>
-                    <th>Modified</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentFiles.length === 0 ? (
-                    <tr>
-                      <td colSpan="6" className="table-empty">No files available</td>
-                    </tr>
-                  ) : (
-                    recentFiles.map((file) => {
-                      const { icon: FileIcon, color } = getFileIcon(file.originalName);
-                      return (
-                        <tr key={file._id || file.fileId}>
-                          <td>
-                            <div className="file-name-cell">
-                              <div className="cell-icon-wrap" style={{ color }}>
-                                <FileIcon size={16} />
-                              </div>
-                              <span className="file-name-text" title={file.originalName}>{file.originalName}</span>
-                            </div>
-                          </td>
-                          <td>
-                            <span className="owner-text">{user?.fullName || 'System Admin'}</span>
-                          </td>
-                          <td>
-                            <span className="mono-text">{formatBytes(file.fileSize)}</span>
-                          </td>
-                          <td>
-                            <span className="type-badge">{file.originalName?.split('.').pop()?.toUpperCase() || 'BIN'}</span>
-                          </td>
-                          <td>
-                            <span className="time-text">
-                              {new Date(file.updatedAt || file.createdAt).toLocaleDateString()}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="action-cell-btns">
-                              <button className="btn-icon-mini" title="Share" onClick={() => navigate('/shares')}>
-                                <Share2 size={12} />
-                              </button>
-                              <button className="btn-icon-mini" title="More">
-                                <MoreVertical size={12} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination footer */}
-            <div className="table-pagination-footer">
-              <span className="pag-summary">Showing 1 to 5 of {stats.totalFiles || '1,248'} files</span>
-              <div className="pag-controls">
-                <button className="pag-btn prev" disabled>‹</button>
-                <button className="pag-num active">1</button>
-                <button className="pag-num">2</button>
-                <button className="pag-num">3</button>
-                <span className="pag-dots">...</span>
-                <button className="pag-num">125</button>
-                <button className="pag-btn next">›</button>
+            ) : (
+              <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--text-muted)" }}>
+                <HelpCircle size={40} color="var(--text-disabled)" style={{ marginBottom: 12 }} />
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>No files yet</div>
+                <button onClick={() => navigate("/upload")} className="btn btn-primary" style={{ marginTop: 12, fontSize: 13 }}>Upload your first file</button>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Recent Activity Feed */}
-          <div className="glass-card recent-activity-feed animate-fadeInUp stagger-6">
-            <div className="recent-activity-header">
-              <h3 className="section-title">Recent Activity</h3>
-              <a href="/audit-logs" className="view-all-link">View All</a>
+          {/* Activity Feed */}
+          <div style={{
+            background: "var(--glass-bg)", backdropFilter: "var(--glass-blur)", border: "1px solid var(--glass-border)",
+            borderRadius: "var(--radius-xl)", padding: 24,
+            boxShadow: "var(--shadow-card-3d)",
+            animation: "fadeInUp 0.5s var(--ease-out) 0.4s both",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+              <Activity size={16} color="var(--accent-emerald)" />
+              <h3 style={{ fontSize: 14, fontWeight: 700 }}>Activity Feed</h3>
+              <div style={{ marginLeft: "auto", width: 8, height: 8, borderRadius: "50%", background: "var(--color-success)", animation: "pulse-ring 2s ease-in-out infinite" }} />
             </div>
-
-            <div className="activity-list">
-              {activities.map((act, i) => (
-                <div key={i} className="activity-item">
-                  <div className="activity-dot-line">
-                    <div className="activity-dot" style={{ backgroundColor: act.color }} />
-                    {i < activities.length - 1 && <div className="activity-line" />}
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 18, display: "flex", alignItems: "center", gap: 6 }}>
+              <Clock size={11} /> Live updates
+            </div>
+            {activities.map((a, i) => (
+              <ActivityRow key={i} index={i} icon={a.icon} text={a.text} time={a.time} color={a.color} />
+            ))}
+            {/* System status bar */}
+            <div style={{ marginTop: 18, padding: "12px 14px", background: "hsla(0,0%,0%,0.2)", borderRadius: "var(--radius-md)", border: "1px solid var(--glass-border)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <Server size={13} color="var(--accent-cyan)" />
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>System Status</span>
+                <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: "var(--color-success)" }}>All Systems Operational</span>
+              </div>
+              {[
+                { label: "API Server", pct: 99.9, color: "var(--color-success)" },
+                { label: "Storage",   pct: 98.5, color: "var(--accent-primary)" },
+                { label: "CDN",       pct: 100,  color: "var(--accent-emerald)" },
+              ].map(s => (
+                <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", width: 80 }}>{s.label}</div>
+                  <div style={{ flex: 1, height: 3, background: "var(--glass-bg)", borderRadius: 99, overflow: "hidden" }}>
+                    <div style={{ width: `${s.pct}%`, height: "100%", background: s.color, borderRadius: 99, boxShadow: `0 0 6px ${s.color}` }} />
                   </div>
-                  <div className="activity-meta">
-                    <span className="activity-text">{act.text}</span>
-                    <span className="activity-time">{act.time}</span>
-                  </div>
+                  <div style={{ fontSize: 10, color: s.color, fontWeight: 700, width: 36, textAlign: "right" }}>{s.pct}%</div>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* 4. Bottom Row Status Indicators */}
-        <div className="status-indicators-row">
-          <div className="glass-card status-indicator-card animate-fadeInUp stagger-7">
-            <div className="status-card-header">
-              <div className="status-dot dot-secure" />
-              <span className="status-label">Security Status</span>
-            </div>
-            <span className="status-heading">Everything is secure</span>
-            <span className="status-sub">No security issues found</span>
-            <button className="status-action-link" onClick={() => navigate('/audit-logs')}>View Security Logs</button>
-          </div>
-
-          <div className="glass-card status-indicator-card animate-fadeInUp stagger-7">
-            <div className="status-card-header">
-              <div className="status-dot dot-active" />
-              <span className="status-label">Account Status</span>
-            </div>
-            <span className="status-heading">Active</span>
-            <span className="status-sub">Your account is in good standing</span>
-            <button className="status-action-link">Manage Account</button>
-          </div>
-
-          <div className="glass-card status-indicator-card animate-fadeInUp stagger-7">
-            <div className="status-card-header">
-              <div className="status-dot dot-trend" />
-              <span className="status-label">Storage Trend</span>
-            </div>
-            <div className="trend-main">
-              <span className="status-heading">+12%</span>
-              <span className="trend-sub">vs last month</span>
-            </div>
-            {/* Sparkline canvas placeholder */}
-            <div className="sparkline-wrapper">
-              <svg viewBox="0 0 100 30" width="100%" height="30" className="sparkline-svg">
-                <path d="M 0,25 Q 15,10 30,22 T 60,8 T 90,15 L 100,5" fill="none" stroke="var(--accent-primary)" strokeWidth="2" />
-              </svg>
-            </div>
-            <button className="status-action-link" onClick={() => navigate('/audit-logs')}>View Analytics</button>
-          </div>
-
-          <div className="glass-card status-indicator-card animate-fadeInUp stagger-7">
-            <div className="status-card-header">
-              <div className="status-dot dot-health" />
-              <span className="status-label">System Health</span>
-            </div>
-            <span className="status-heading">All Systems Operational</span>
-            <span className="status-sub">Everything is running smoothly</span>
-            <button className="status-action-link" onClick={() => navigate('/audit-logs')}>View System Logs</button>
-          </div>
-        </div>
-
+        {/* ── Responsive styles ── */}
+        <style>{`
+          @media (max-width: 900px) {
+            .middle-split-grid, .bottom-split-grid { grid-template-columns: 1fr !important; }
+          }
+        `}</style>
       </div>
-
-      <style>{`
-        .dash-container {
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-          padding-bottom: 24px;
-        }
-
-        .dash-greeting-row {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .welcome-title {
-          font-size: 24px;
-          font-weight: 700;
-          color: var(--text-primary);
-        }
-
-        .welcome-subtitle {
-          font-size: 13.5px;
-          color: var(--text-muted);
-        }
-
-        /* 1. Stat Cards Row */
-        .stats-row {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 16px;
-        }
-
-        .stat-card-premium {
-          padding: 16px 20px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          border-radius: var(--radius-lg);
-          border: 1px solid var(--border-subtle);
-          color: #fff;
-          position: relative;
-          overflow: hidden;
-        }
-
-        /* Stat card gradient setups */
-        .grad-purple-blue {
-          background: linear-gradient(135deg, hsl(230, 45%, 12%), hsl(230, 42%, 7%));
-          border-left: 4px solid var(--accent-primary);
-        }
-        .grad-teal {
-          background: linear-gradient(135deg, hsl(230, 45%, 12%), hsl(230, 42%, 7%));
-          border-left: 4px solid var(--accent-teal);
-        }
-        .grad-purple {
-          background: linear-gradient(135deg, hsl(230, 45%, 12%), hsl(230, 42%, 7%));
-          border-left: 4px solid var(--accent-secondary);
-        }
-        .grad-orange {
-          background: linear-gradient(135deg, hsl(230, 45%, 12%), hsl(230, 42%, 7%));
-          border-left: 4px solid var(--accent-orange);
-        }
-
-        .card-premium-left {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .card-premium-label {
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .card-premium-value {
-          display: flex;
-          align-items: baseline;
-          gap: 4px;
-        }
-
-        .value-num {
-          font-family: var(--font-display);
-          font-size: 26px;
-          font-weight: 700;
-          line-height: 1.1;
-          color: var(--text-primary);
-        }
-
-        .value-sep {
-          font-size: 14px;
-          color: var(--text-muted);
-          margin: 0 2px;
-        }
-
-        .value-total {
-          font-size: 14px;
-          color: var(--text-secondary);
-          font-weight: 500;
-        }
-
-        .card-premium-sub {
-          font-size: 11px;
-          color: var(--text-muted);
-        }
-
-        .card-premium-right {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          justify-content: space-between;
-          height: 100%;
-          min-height: 52px;
-        }
-
-        .card-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 2px;
-          font-size: 10px;
-          font-weight: 700;
-          padding: 2px 6px;
-          border-radius: var(--radius-full);
-        }
-
-        .badge-green { background: var(--color-success-subtle); color: var(--color-success); }
-        .badge-purple { background: var(--accent-secondary-subtle); color: var(--accent-secondary); }
-        .badge-orange { background: var(--accent-orange-subtle); color: var(--accent-orange); }
-
-        .card-premium-icon {
-          color: var(--text-muted);
-          opacity: 0.8;
-          margin-top: auto;
-        }
-
-        .donut-holder {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .donut-pct-text {
-          position: absolute;
-          font-family: var(--font-display);
-          font-size: 11px;
-          font-weight: 700;
-          color: var(--text-primary);
-        }
-
-        /* 2. Middle Grid */
-        .middle-split-grid {
-          display: grid;
-          grid-template-columns: 1fr 340px;
-          gap: 20px;
-        }
-
-        .quick-actions-panel {
-          padding: 20px;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .section-title {
-          font-size: 15px;
-          font-weight: 700;
-          color: var(--text-primary);
-        }
-
-        .quick-actions-inner-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-          align-items: stretch;
-        }
-
-        .action-dropzone {
-          border: 1px dashed var(--border-subtle);
-          background: hsl(230, 40%, 7%);
-          border-radius: var(--radius-lg);
-          padding: 24px 16px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          cursor: pointer;
-          transition: all var(--duration-normal) var(--ease-out);
-        }
-
-        .action-dropzone:hover {
-          border-color: var(--accent-primary);
-          background: hsl(230, 36%, 9%);
-          transform: translateY(-2px);
-        }
-
-        .dropzone-icon {
-          color: var(--text-muted);
-          margin-bottom: 4px;
-        }
-
-        .dropzone-text {
-          font-size: 12.5px;
-          font-weight: 600;
-          color: var(--text-secondary);
-        }
-
-        .dropzone-or {
-          font-size: 11px;
-          color: var(--text-disabled);
-          text-transform: uppercase;
-        }
-
-        .dropzone-btn {
-          padding: 6px 16px;
-          font-size: 12px;
-          background: var(--accent-primary-subtle);
-          color: var(--accent-primary);
-          border: 1px solid var(--accent-primary-glow);
-          box-shadow: none;
-        }
-
-        .dropzone-btn:hover {
-          background: var(--accent-primary);
-          color: #fff;
-        }
-
-        .dropzone-limit {
-          font-size: 10px;
-          color: var(--text-disabled);
-          margin-top: 4px;
-        }
-
-        .actions-button-grid {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        .action-button-card {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 10px 14px;
-          background: hsl(230, 40%, 7%);
-          border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-md);
-          cursor: pointer;
-          transition: all var(--duration-normal) var(--ease-out);
-        }
-
-        .action-button-card:hover {
-          background: hsl(230, 36%, 10%);
-          border-color: var(--border-standard);
-          transform: translateX(4px);
-        }
-
-        .ab-icon {
-          width: 34px;
-          height: 34px;
-          border-radius: var(--radius-sm);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .icon-blue { background: var(--accent-primary-subtle); color: var(--accent-primary); }
-        .icon-green { background: var(--accent-emerald-subtle); color: var(--accent-emerald); }
-        .icon-purple { background: var(--accent-secondary-subtle); color: var(--accent-secondary); }
-        .icon-cyan { background: var(--accent-cyan-subtle); color: var(--accent-cyan); }
-        .icon-orange { background: var(--accent-orange-subtle); color: var(--accent-orange); }
-
-        .ab-meta {
-          display: flex;
-          flex-direction: column;
-          gap: 1px;
-        }
-
-        .ab-title {
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--text-primary);
-        }
-
-        .ab-desc {
-          font-size: 11px;
-          color: var(--text-muted);
-        }
-
-        /* Storage Sidebar */
-        .storage-sidebar {
-          padding: 20px;
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }
-
-        .storage-sidebar-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .sb-timeframe-dropdown {
-          font-size: 11px;
-          font-weight: 700;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          border: 1px solid var(--border-subtle);
-          padding: 3px 8px;
-          border-radius: var(--radius-xs);
-          cursor: pointer;
-        }
-
-        .storage-sidebar-gauge-section {
-          display: flex;
-          align-items: center;
-          gap: 20px;
-          border-bottom: 1px solid var(--border-subtle);
-          padding-bottom: 16px;
-        }
-
-        .gauge-holder {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .gauge-center-val {
-          position: absolute;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-        }
-
-        .g-pct {
-          font-family: var(--font-display);
-          font-size: 22px;
-          font-weight: 800;
-          color: var(--text-primary);
-          line-height: 1;
-        }
-
-        .g-label {
-          font-size: 9px;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          margin-top: 1px;
-        }
-
-        .gauge-legend {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          flex: 1;
-        }
-
-        .legend-item {
-          display: flex;
-          align-items: center;
-          font-size: 11.5px;
-        }
-
-        .legend-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          margin-right: 8px;
-          flex-shrink: 0;
-        }
-
-        .dot-used { background-color: var(--accent-primary); }
-        .dot-available { background-color: rgba(255,255,255,0.06); }
-        .dot-total { background-color: var(--text-muted); }
-
-        .legend-label {
-          color: var(--text-muted);
-          flex: 1;
-        }
-
-        .legend-value {
-          font-weight: 600;
-          color: var(--text-secondary);
-        }
-
-        /* Breakdown list */
-        .storage-breakdown-section {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .breakdown-title {
-          font-size: 12px;
-          font-weight: 700;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .breakdown-list {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        .breakdown-item {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .breakdown-meta {
-          display: flex;
-          justify-content: space-between;
-          font-size: 12px;
-        }
-
-        .b-label {
-          color: var(--text-secondary);
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          font-weight: 500;
-        }
-
-        .b-vals {
-          font-weight: 600;
-          color: var(--text-primary);
-        }
-
-        .view-report-btn {
-          width: 100%;
-          background: transparent;
-          border: 1px solid var(--border-subtle);
-          color: var(--text-secondary);
-          padding: 8px;
-          border-radius: var(--radius-md);
-          font-size: 12px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all var(--duration-normal);
-          margin-top: 8px;
-        }
-
-        .view-report-btn:hover {
-          border-color: var(--accent-primary);
-          color: var(--accent-primary);
-        }
-
-        /* 3. Bottom Grid */
-        .bottom-split-grid {
-          display: grid;
-          grid-template-columns: 1fr 340px;
-          gap: 20px;
-        }
-
-        .recent-files-container {
-          padding: 20px;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .recent-files-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 12px;
-        }
-
-        .recent-files-tabs {
-          display: flex;
-          gap: 4px;
-          background: hsl(230, 40%, 7%);
-          padding: 3px;
-          border-radius: var(--radius-md);
-          border: 1px solid var(--border-subtle);
-        }
-
-        .tab-btn {
-          background: transparent;
-          border: none;
-          color: var(--text-muted);
-          padding: 4px 12px;
-          font-size: 11.5px;
-          font-weight: 600;
-          border-radius: var(--radius-sm);
-          cursor: pointer;
-          transition: all var(--duration-fast);
-        }
-
-        .tab-btn.active {
-          background: var(--bg-surface);
-          color: var(--text-primary);
-          box-shadow: var(--shadow-xs);
-        }
-
-        .view-all-link {
-          font-size: 12.5px;
-          font-weight: 600;
-          color: var(--accent-primary);
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-        }
-
-        .view-all-link:hover {
-          text-decoration: underline;
-        }
-
-        /* Table */
-        .table-responsive {
-          width: 100%;
-          overflow-x: auto;
-        }
-
-        .recent-files-table {
-          width: 100%;
-          border-collapse: collapse;
-          text-align: left;
-        }
-
-        .recent-files-table th {
-          padding: 10px 12px;
-          font-size: 11px;
-          font-weight: 700;
-          color: var(--text-disabled);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          border-bottom: 1px solid var(--border-subtle);
-        }
-
-        .recent-files-table td {
-          padding: 12px;
-          border-bottom: 1px solid var(--border-subtle);
-          font-size: 13px;
-          vertical-align: middle;
-        }
-
-        .recent-files-table tr:hover td {
-          background: rgba(255,255,255,0.01);
-        }
-
-        .file-name-cell {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          max-width: 200px;
-        }
-
-        .cell-icon-wrap {
-          width: 28px;
-          height: 28px;
-          border-radius: var(--radius-sm);
-          background: rgba(255,255,255,0.03);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .file-name-text {
-          font-weight: 600;
-          color: var(--text-primary);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .owner-text {
-          color: var(--text-secondary);
-        }
-
-        .mono-text {
-          font-family: var(--font-mono);
-          color: var(--text-secondary);
-        }
-
-        .type-badge {
-          display: inline-block;
-          padding: 2px 6px;
-          background: hsl(230, 36%, 12%);
-          border: 1px solid var(--border-subtle);
-          color: var(--text-secondary);
-          border-radius: var(--radius-xs);
-          font-size: 10px;
-          font-weight: 700;
-        }
-
-        .time-text {
-          color: var(--text-muted);
-        }
-
-        .action-cell-btns {
-          display: flex;
-          gap: 6px;
-        }
-
-        .btn-icon-mini {
-          width: 26px;
-          height: 26px;
-          border-radius: var(--radius-sm);
-          background: transparent;
-          border: 1px solid var(--border-subtle);
-          color: var(--text-muted);
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all var(--duration-fast);
-        }
-
-        .btn-icon-mini:hover {
-          border-color: var(--border-standard);
-          color: var(--text-primary);
-          background: var(--bg-surface-hover);
-        }
-
-        .table-empty {
-          text-align: center;
-          color: var(--text-muted);
-          padding: 32px !important;
-        }
-
-        /* Pagination */
-        .table-pagination-footer {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding-top: 14px;
-          margin-top: auto;
-        }
-
-        .pag-summary {
-          font-size: 12px;
-          color: var(--text-muted);
-        }
-
-        .pag-controls {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-
-        .pag-btn, .pag-num {
-          height: 28px;
-          min-width: 28px;
-          border-radius: var(--radius-sm);
-          background: transparent;
-          border: 1px solid var(--border-subtle);
-          color: var(--text-secondary);
-          font-size: 12px;
-          font-weight: 600;
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          transition: all var(--duration-fast);
-        }
-
-        .pag-btn:hover:not(:disabled), .pag-num:hover {
-          background: var(--bg-surface-hover);
-          border-color: var(--border-standard);
-          color: var(--text-primary);
-        }
-
-        .pag-num.active {
-          background: var(--accent-primary-subtle);
-          border-color: var(--accent-primary);
-          color: var(--accent-primary);
-        }
-
-        .pag-btn:disabled {
-          opacity: 0.3;
-          cursor: not-allowed;
-        }
-
-        .pag-dots {
-          color: var(--text-muted);
-          padding: 0 4px;
-          font-size: 12px;
-        }
-
-        /* Recent Activity */
-        .recent-activity-feed {
-          padding: 20px;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .recent-activity-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .activity-list {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .activity-item {
-          display: flex;
-          gap: 14px;
-        }
-
-        .activity-dot-line {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          width: 8px;
-          flex-shrink: 0;
-          margin-top: 6px;
-        }
-
-        .activity-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-        }
-
-        .activity-line {
-          width: 2px;
-          flex: 1;
-          background: var(--border-subtle);
-          margin: 6px 0;
-          min-height: 24px;
-        }
-
-        .activity-meta {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          padding-bottom: 18px;
-        }
-
-        .activity-text {
-          font-size: 12.5px;
-          font-weight: 500;
-          color: var(--text-primary);
-        }
-
-        .activity-time {
-          font-size: 11px;
-          color: var(--text-muted);
-        }
-
-        /* 4. Status Indicators Row */
-        .status-indicators-row {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 16px;
-        }
-
-        .status-indicator-card {
-          padding: 16px;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .status-card-header {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .status-dot {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-        }
-
-        .dot-secure { background-color: var(--color-success); box-shadow: 0 0 8px var(--color-success); }
-        .dot-active { background-color: var(--accent-teal); box-shadow: 0 0 8px var(--accent-teal); }
-        .dot-trend { background-color: var(--accent-primary); box-shadow: 0 0 8px var(--accent-primary); }
-        .dot-health { background-color: var(--accent-emerald); box-shadow: 0 0 8px var(--accent-emerald); }
-
-        .status-label {
-          font-size: 11px;
-          font-weight: 700;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .status-heading {
-          font-size: 14.5px;
-          font-weight: 700;
-          color: var(--text-primary);
-        }
-
-        .status-sub {
-          font-size: 12px;
-          color: var(--text-muted);
-        }
-
-        .status-action-link {
-          background: transparent;
-          border: none;
-          color: var(--accent-primary);
-          font-size: 12px;
-          font-weight: 600;
-          text-align: left;
-          cursor: pointer;
-          padding: 0;
-          margin-top: auto;
-          display: inline-flex;
-          align-items: center;
-        }
-
-        .status-action-link:hover {
-          text-decoration: underline;
-        }
-
-        .trend-main {
-          display: flex;
-          align-items: baseline;
-          gap: 6px;
-        }
-
-        .trend-sub {
-          font-size: 11px;
-          color: var(--text-muted);
-        }
-
-        .sparkline-wrapper {
-          width: 100%;
-          height: 30px;
-          margin: 2px 0;
-        }
-
-        .sparkline-svg {
-          overflow: visible;
-        }
-
-        /* ═══════════════════════════════════════
-           RESPONSIVE / MOBILE
-           ═══════════════════════════════════════ */
-        @media (max-width: 1200px) {
-          .stats-row {
-            grid-template-columns: repeat(2, 1fr);
-          }
-          .middle-split-grid {
-            grid-template-columns: 1fr;
-          }
-          .bottom-split-grid {
-            grid-template-columns: 1fr;
-          }
-          .status-indicators-row {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-
-        @media (max-width: 768px) {
-          .stats-row {
-            grid-template-columns: 1fr;
-          }
-          .status-indicators-row {
-            grid-template-columns: 1fr;
-          }
-          .quick-actions-inner-grid {
-            grid-template-columns: 1fr;
-          }
-          .storage-sidebar-gauge-section {
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-          }
-          .recent-files-header {
-            flex-direction: column;
-            align-items: stretch;
-          }
-          .recent-files-tabs {
-            overflow-x: auto;
-            white-space: nowrap;
-          }
-        }
-      `}</style>
     </Layout>
   );
 };
